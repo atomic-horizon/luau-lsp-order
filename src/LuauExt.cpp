@@ -168,6 +168,12 @@ std::optional<Luau::AstExpr*> matchRequire(const Luau::AstExprCall& call)
         return std::nullopt;
 
     const Luau::AstExprGlobal* funcAsGlobal = call.func->as<Luau::AstExprGlobal>();
+
+#ifdef ORDER_STRING_REQUIRE
+    if (funcAsGlobal && funcAsGlobal->name == "shared")
+        return call.args.data[0];
+#endif
+
     if (!funcAsGlobal || funcAsGlobal->name != require)
         return std::nullopt;
 
@@ -191,11 +197,7 @@ std::optional<lsp::Location> getTypeLocation(Luau::TypeId ty, WorkspaceFileResol
     if (!document)
         return std::nullopt;
 
-    return lsp::Location{
-        document->uri(),
-        lsp::Range{
-            document->convertPosition(location->begin),
-            document->convertPosition(location->end)}};
+    return lsp::Location{document->uri(), lsp::Range{document->convertPosition(location->begin), document->convertPosition(location->end)}};
 }
 
 } // namespace types
@@ -795,6 +797,10 @@ bool isRequire(const Luau::AstExpr* expr)
     {
         if (auto funcAsGlobal = call->func->as<Luau::AstExprGlobal>(); funcAsGlobal && funcAsGlobal->name == "require")
             return true;
+#ifdef ORDER_STRING_REQUIRE
+        if (auto funcAsGlobal = call->func->as<Luau::AstExprGlobal>(); funcAsGlobal && funcAsGlobal->name == "shared")
+            return true;
+#endif
     }
     else if (auto assertion = expr->as<Luau::AstExprTypeAssertion>())
     {

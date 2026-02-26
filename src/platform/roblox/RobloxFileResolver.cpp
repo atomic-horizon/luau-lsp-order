@@ -115,8 +115,20 @@ static std::string mapContext(const std::string& context)
     return context;
 }
 
-std::optional<Luau::ModuleInfo> RobloxPlatform::resolveModule(const Luau::ModuleInfo* context, Luau::AstExpr* node, const Luau::TypeCheckLimits& limits)
+std::optional<Luau::ModuleInfo> RobloxPlatform::resolveModule(
+    const Luau::ModuleInfo* context, Luau::AstExpr* node, const Luau::TypeCheckLimits& limits)
 {
+#ifdef ORDER_STRING_REQUIRE
+    if (auto* str = node->as<Luau::AstExprConstantString>())
+    {
+        auto module = this->findOrderStringModule(std::string(str->value.data, str->value.size));
+        if (module.has_value())
+        {
+            Luau::ModuleName virtualPath = getVirtualPathFromSourceNode(module.value());
+            return Luau::ModuleInfo{virtualPath};
+        }
+    }
+#endif
 
     if (auto parentResult = LSPPlatform::resolveModule(context, node, limits))
         return parentResult;

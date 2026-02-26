@@ -13,7 +13,9 @@
         "--disable-extensions",
         "--extensionDevelopmentPath=${workspaceFolder}/editors/code"
       ],
-      "outFiles": ["${workspaceFolder}/editors/code/dist/**/*.js"],
+      "outFiles": [
+        "${workspaceFolder}/editors/code/dist/**/*.js"
+      ],
       "preLaunchTask": "npm: compile",
       "env": {
         "LUAU_LSP_SERVER_PATH": "${workspaceFolder}/${input:binaryPath}/luau-lsp"
@@ -35,7 +37,9 @@
       "env": {
         "CMAKE_BUILD_TYPE": "${command:cmake.buildType}"
       },
-      "outFiles": ["${workspaceFolder}/editors/code/dist/**/*.js"],
+      "outFiles": [
+        "${workspaceFolder}/editors/code/dist/**/*.js"
+      ],
       "preLaunchTask": "Build Server and Extension"
     },
     {
@@ -47,7 +51,9 @@
         "--extensionTestsPath=${workspaceFolder}/editors/code/dist/test/suite/index",
         "${workspaceFolder}/editors/code/testFixture"
       ],
-      "outFiles": ["${workspaceFolder}/editors/code/dist/**/*.js"],
+      "outFiles": [
+        "${workspaceFolder}/editors/code/dist/**/*.js"
+      ],
       "preLaunchTask": "tasks: watch-tests"
     },
     {
@@ -62,8 +68,11 @@
       "id": "binaryPath",
       "type": "pickString",
       "description": "Path to build folder containing 'luau-lsp'",
-      "default": "cmake-build-relwithdebinfo-visual-studio",
+      "default": "build/Debug",
       "options": [
+        "build/Debug",
+        "build/Release",
+        "build/RelWithDebInfo",
         "cmake-build-debug-visual-studio",
         "cmake-build-release-visual-studio",
         "cmake-build-relwithdebinfo-visual-studio",

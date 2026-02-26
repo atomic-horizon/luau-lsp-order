@@ -487,6 +487,17 @@ void RobloxPlatform::writePathsToMap(SourceNode* node, const std::string& base)
         child->parent = node;
         writePathsToMap(child, base + "/" + child->name);
     }
+
+#ifdef ORDER_STRING_REQUIRE
+    // Index all ModuleScript children by name for Order string requires
+    for (auto& child : node->children)
+    {
+        if (child->className == "ModuleScript")
+        {
+            orderModuleNameToSourceNode.insert_or_assign(child->name, child);
+        }
+    }
+#endif
 }
 
 void RobloxPlatform::updateSourceNodeMap(const std::string& sourceMapContents)
@@ -496,6 +507,9 @@ void RobloxPlatform::updateSourceNodeMap(const std::string& sourceMapContents)
     sourceNodeAllocator.clear();
     realPathsToSourceNodes.clear();
     virtualPathsToSourceNodes.clear();
+#ifdef ORDER_STRING_REQUIRE
+    orderModuleNameToSourceNode.clear();
+#endif
 
     try
     {
@@ -608,6 +622,17 @@ void RobloxPlatform::handleSourcemapUpdate(Luau::Frontend& frontend, const Luau:
         if (expressiveTypes || forAutocomplete)
             if (auto node = isVirtualPath(name) ? getSourceNodeFromVirtualPath(name) : getSourceNodeFromRealPath(fileResolver->getUri(name)))
                 scope->bindings[Luau::AstName("script")] = Luau::Binding{getSourcemapType(globals, instanceTypes, node.value())};
+
+#ifdef ORDER_STRING_REQUIRE
+        // Inject `shared` binding with Order magic callable type for each module scope
+        if (expressiveTypes || forAutocomplete)
+        {
+            if (auto node = isVirtualPath(name) ? getSourceNodeFromVirtualPath(name) : getSourceNodeFromRealPath(fileResolver->getUri(name)))
+            {
+                scope->bindings[Luau::AstName("shared")] = Luau::Binding{getOrderStringRequireType(globals, instanceTypes, node.value())};
+            }
+        }
+#endif
     };
 }
 

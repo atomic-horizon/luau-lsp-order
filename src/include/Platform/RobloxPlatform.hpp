@@ -29,6 +29,11 @@ struct SourceNode
     // A different TypeId is created for each type checker (frontend.typeChecker and frontend.typeCheckerForAutocomplete)
     mutable std::unordered_map<Luau::GlobalTypes const*, Luau::TypeId> tys{}; // NB: NOT POPULATED BY SOURCEMAP, created manually. Can be null!
 
+#ifdef ORDER_STRING_REQUIRE
+    // The corresponding callable TypeId for Order string requires on this node
+    mutable std::unordered_map<Luau::GlobalTypes const*, Luau::TypeId> orderStringRequireTypes{};
+#endif
+
     SourceNode(
         std::string name, std::string className, std::vector<std::string> filePaths, std::vector<SourceNode*> children, bool pluginManaged = false);
 
@@ -84,6 +89,10 @@ public:
 
     mutable std::unordered_map<Luau::ModuleName, const SourceNode*> virtualPathsToSourceNodes{};
 
+#ifdef ORDER_STRING_REQUIRE
+    mutable std::unordered_map<std::string, const SourceNode*> orderModuleNameToSourceNode{};
+#endif
+
     Luau::TypeArena instanceTypes;
 
     /// These are "private" but exposed for unit testing only
@@ -118,6 +127,11 @@ public:
     std::optional<Uri> resolveToRealPath(const Luau::ModuleName& name) const override;
 
     Luau::SourceCode::Type sourceCodeTypeFromPath(const Uri& path) const override;
+
+#ifdef ORDER_STRING_REQUIRE
+    Luau::TypeId getOrderStringRequireType(const Luau::GlobalTypes& globals, Luau::TypeArena& arena, const SourceNode* node) const;
+    std::optional<const SourceNode*> findOrderStringModule(const std::string& moduleName) const;
+#endif
 
     std::optional<std::string> readSourceCode(const Luau::ModuleName& name, const Uri& path) const override;
 

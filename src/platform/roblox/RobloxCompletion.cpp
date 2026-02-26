@@ -146,6 +146,19 @@ std::optional<Luau::AutocompleteEntryMap> RobloxPlatform::completionCallback(
             return result;
         }
     }
+#ifdef ORDER_STRING_REQUIRE
+    else if (tag == "OrderStringRequires")
+    {
+        Luau::AutocompleteEntryMap result;
+        for (auto& [moduleName, _] : orderModuleNameToSourceNode)
+        {
+            result.insert_or_assign(
+                moduleName, Luau::AutocompleteEntry{Luau::AutocompleteEntryKind::String, workspaceFolder->frontend.builtinTypes->stringType, false,
+                                false, Luau::TypeCorrectKind::Correct});
+        }
+        return result;
+    }
+#endif
     else if (tag == "Enums")
     {
         auto it = workspaceFolder->frontend.globals.globalScope->importedTypeBindings.find("Enum");
