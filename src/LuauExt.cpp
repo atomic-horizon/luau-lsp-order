@@ -162,22 +162,20 @@ Luau::ToStringResult toStringReturnTypeDetailed(Luau::TypePackId retTypes, Luau:
 // Duplicated from Luau/TypeInfer.h, since its static
 std::optional<Luau::AstExpr*> matchRequire(const Luau::AstExprCall& call)
 {
-    const char* require = "require";
-
-    if (call.args.size != 1)
+    const Luau::AstExprGlobal* funcAsGlobal = call.func->as<Luau::AstExprGlobal>();
+    if (!funcAsGlobal)
         return std::nullopt;
 
-    const Luau::AstExprGlobal* funcAsGlobal = call.func->as<Luau::AstExprGlobal>();
-
 #ifdef ORDER_STRING_REQUIRE
-    if (funcAsGlobal && funcAsGlobal->name == "shared")
+    // shared() accepts 1 or 2 args: shared("ModuleName") or shared("ModuleName", true)
+    if (funcAsGlobal->name == "shared" && call.args.size >= 1 && call.args.size <= 2)
         return call.args.data[0];
 #endif
 
-    if (!funcAsGlobal || funcAsGlobal->name != require)
+    if (call.args.size != 1)
         return std::nullopt;
 
-    if (call.args.size != 1)
+    if (funcAsGlobal->name != "require")
         return std::nullopt;
 
     return call.args.data[0];

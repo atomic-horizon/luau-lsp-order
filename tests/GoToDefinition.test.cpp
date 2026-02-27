@@ -763,4 +763,36 @@ TEST_CASE_FIXTURE(Fixture, "go_to_definition_on_original_local_function_definiti
     CHECK_EQ(result[0].range, lsp::Range{{1, 23}, {1, 36}});
 }
 
+#ifdef ORDER_STRING_REQUIRE
+TEST_CASE_FIXTURE(Fixture, "go_to_definition_works_for_order_shared_call")
+{
+    loadSourcemap(R"({
+        "name": "Game",
+        "className": "DataModel",
+        "children": [
+            {
+                "name": "ServerStorage",
+                "className": "ServerStorage",
+                "children": [{ "name": "TestModule", "className": "ModuleScript", "filePaths": ["testmodule.luau"] }]
+            }
+        ]
+    })");
+
+    auto [source, position] = sourceWithMarker(R"(
+        local X = shared("TestMod|ule")
+    )");
+    auto document = newDocument("main.luau", source);
+
+    auto params = lsp::DefinitionParams{};
+    params.textDocument = lsp::TextDocumentIdentifier{document};
+    params.position = position;
+
+    auto result = workspace.gotoDefinition(params, nullptr);
+    REQUIRE_EQ(result.size(), 1);
+    CHECK_EQ(result[0].uri, workspace.rootUri.resolvePath("testmodule.luau"));
+    CHECK_EQ(result[0].range.start, lsp::Position{0, 0});
+    CHECK_EQ(result[0].range.end, lsp::Position{0, 0});
+}
+#endif
+
 TEST_SUITE_END();

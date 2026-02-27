@@ -22,8 +22,8 @@ RequireGraph computeFullRequireGraph(const Luau::Frontend& frontend)
     for (const auto& [currentModuleName, sourceNode] : frontend.sourceNodes)
     {
         result.nodes.emplace_back(currentModuleName);
-        result.edges.reserve(result.edges.size() + sourceNode->requireLocations.size());
-        for (const auto& [requiredModuleName, _] : sourceNode->requireLocations)
+        // Use requireSet to capture both regular require() and Order shared() dependencies
+        for (const Luau::ModuleName& requiredModuleName : sourceNode->requireSet)
             result.edges.emplace_back(currentModuleName, requiredModuleName);
     }
 
@@ -52,7 +52,8 @@ RequireGraph computeRequireGraphFromRoot(const Luau::Frontend& frontend, const L
 
         if (auto node = frontend.sourceNodes.find(currentModuleName); node != frontend.sourceNodes.end())
         {
-            for (const auto& [requiredModuleName, _] : node->second->requireLocations)
+            // Use requireSet to capture both regular require() and Order shared() dependencies
+            for (const Luau::ModuleName& requiredModuleName : node->second->requireSet)
             {
                 result.edges.emplace_back(currentModuleName, requiredModuleName);
                 queue.push(requiredModuleName);

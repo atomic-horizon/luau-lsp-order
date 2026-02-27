@@ -649,6 +649,186 @@ TEST_CASE_FIXTURE(Fixture, "handles_type_references_without_types_graph")
     CHECK_EQ(result->contents.value, codeBlock("luau", "type Types.Value = string") + kDocumentationBreaker + "This is a type\n");
 }
 
+#ifdef ORDER_STRING_REQUIRE
+TEST_CASE_FIXTURE(Fixture, "hover_shows_module_type_not_any_for_order_shared_call")
+{
+    loadSourcemap(R"({
+        "name": "Game",
+        "className": "DataModel",
+        "children": [
+            {
+                "name": "ServerStorage",
+                "className": "ServerStorage",
+                "children": [{ "name": "TestModule", "className": "ModuleScript", "filePaths": ["testmodule.luau"] }]
+            },
+            {
+                "name": "ServerScriptService",
+                "className": "ServerScriptService",
+                "children": [{ "name": "Main", "className": "Script", "filePaths": ["main.luau"] }]
+            }
+        ]
+    })");
+
+    newDocument("testmodule.luau", "return 1");
+
+    // Hover over a usage of the variable (not the declaration) so we exercise
+    // the code path that reads scope->lookup() / astTypes for the local.
+    auto [source, marker] = sourceWithMarker(R"(
+        local Mod = shared("TestModule")
+        local _ = Mo|d
+    )");
+    auto uri = newDocument("main.luau", source);
+
+    lsp::HoverParams params;
+    params.textDocument = lsp::TextDocumentIdentifier{uri};
+    params.position = marker;
+
+    auto result = workspace.hover(params, nullptr);
+    REQUIRE(result);
+    // The module returns `1`, so Mod should have type `number`, not `any`.
+    CHECK_EQ(result->contents.value, codeBlock("luau", "local Mod: number"));
+}
+
+TEST_CASE_FIXTURE(Fixture, "hover_resolves_external_type_from_order_shared_module")
+{
+    loadSourcemap(R"({
+        "name": "Game",
+        "className": "DataModel",
+        "children": [
+            {
+                "name": "ServerStorage",
+                "className": "ServerStorage",
+                "children": [{ "name": "TestModule", "className": "ModuleScript", "filePaths": ["testmodule.luau"] }]
+            }
+        ]
+    })");
+
+    newDocument("testmodule.luau", R"(
+        --- This is a type
+        export type Value = string
+    )");
+
+    auto uri = newDocument("main.luau", R"(
+        local TestMod = shared("TestModule")
+
+        local x: TestMod.Value
+    )");
+
+    lsp::HoverParams params;
+    params.textDocument = lsp::TextDocumentIdentifier{uri};
+    // Position on `V` in `TestMod.Value` (0-indexed: line 3, col 25)
+    params.position = lsp::Position{3, 25};
+
+    auto result = workspace.hover(params, nullptr);
+    REQUIRE(result);
+    CHECK_EQ(result->contents.value, codeBlock("luau", "type TestMod.Value = string") + kDocumentationBreaker + "This is a type\n");
+}
+
+TEST_CASE_FIXTURE(Fixture, "hover_shows_nilable_type_for_shared_with_true_flag")
+{
+    loadSourcemap(R"({
+        "name": "Game",
+        "className": "DataModel",
+        "children": [
+            {
+                "name": "ServerStorage",
+                "className": "ServerStorage",
+                "children": [{ "name": "TestModule", "className": "ModuleScript", "filePaths": ["testmodule.luau"] }]
+            },
+            {
+                "name": "ServerScriptService",
+                "className": "ServerScriptService",
+                "children": [{ "name": "Main", "className": "Script", "filePaths": ["main.luau"] }]
+            }
+        ]
+    })");
+
+    newDocument("testmodule.luau", "return 1");
+
+    auto [source, marker] = sourceWithMarker(R"(
+        local Mod = shared("TestModule", true)
+        local _ = Mo|d
+    )");
+    auto uri = newDocument("main.luau", source);
+
+    lsp::HoverParams params;
+    params.textDocument = lsp::TextDocumentIdentifier{uri};
+    params.position = marker;
+
+    auto result = workspace.hover(params, nullptr);
+    REQUIRE(result);
+    // The module returns `1` (number), but with the `true` flag the type should be nilable
+    CHECK_EQ(result->contents.value, codeBlock("luau", "local Mod: number?"));
+}
+
+TEST_CASE_FIXTURE(Fixture, "hover_shows_nil_for_shared_with_true_flag_unknown_module")
+{
+    loadSourcemap(R"({
+        "name": "Game",
+        "className": "DataModel",
+        "children": [
+            {
+                "name": "ServerScriptService",
+                "className": "ServerScriptService",
+                "children": [{ "name": "Main", "className": "Script", "filePaths": ["main.luau"] }]
+            }
+        ]
+    })");
+
+    auto [source, marker] = sourceWithMarker(R"(
+        local Mod = shared("NonExistentModule", true)
+        local _ = Mo|d
+    )");
+    auto uri = newDocument("main.luau", source);
+
+    lsp::HoverParams params;
+    params.textDocument = lsp::TextDocumentIdentifier{uri};
+    params.position = marker;
+
+    auto result = workspace.hover(params, nullptr);
+    REQUIRE(result);
+    // Unknown module with `true` flag should resolve to nil (not error)
+    CHECK_EQ(result->contents.value, codeBlock("luau", "local Mod: nil"));
+}
+
+TEST_CASE_FIXTURE(Fixture, "hover_shows_non_nilable_type_for_shared_without_true_flag")
+{
+    loadSourcemap(R"({
+        "name": "Game",
+        "className": "DataModel",
+        "children": [
+            {
+                "name": "ServerStorage",
+                "className": "ServerStorage",
+                "children": [{ "name": "TestModule", "className": "ModuleScript", "filePaths": ["testmodule.luau"] }]
+            },
+            {
+                "name": "ServerScriptService",
+                "className": "ServerScriptService",
+                "children": [{ "name": "Main", "className": "Script", "filePaths": ["main.luau"] }]
+            }
+        ]
+    })");
+
+    newDocument("testmodule.luau", "return 1");
+
+    auto [source, marker] = sourceWithMarker(R"(
+        local Mod = shared("TestModule", false)
+        local _ = Mo|d
+    )");
+    auto uri = newDocument("main.luau", source);
+
+    lsp::HoverParams params;
+    params.textDocument = lsp::TextDocumentIdentifier{uri};
+    params.position = marker;
+
+    auto result = workspace.hover(params, nullptr);
+    REQUIRE(result);
+    // false flag should NOT make the type nilable
+    CHECK_EQ(result->contents.value, codeBlock("luau", "local Mod: number"));
+}
+#endif
+
 TEST_CASE_FIXTURE(Fixture, "hover_respects_cancellation")
 {
     auto cancellationToken = std::make_shared<Luau::FrontendCancellationToken>();

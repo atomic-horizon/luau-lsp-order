@@ -377,6 +377,9 @@ static void clearSourcemapGeneratedTypes(Luau::GlobalTypes& globals)
 static void clearTypesFromSourcemapNodes(SourceNode* node)
 {
     node->tys.clear();
+#ifdef ORDER_STRING_REQUIRE
+    node->orderStringRequireTypes.clear();
+#endif
     for (const auto& child : node->children)
         clearTypesFromSourcemapNodes(child);
 }
@@ -624,13 +627,13 @@ void RobloxPlatform::handleSourcemapUpdate(Luau::Frontend& frontend, const Luau:
                 scope->bindings[Luau::AstName("script")] = Luau::Binding{getSourcemapType(globals, instanceTypes, node.value())};
 
 #ifdef ORDER_STRING_REQUIRE
-        // Inject `shared` binding with Order magic callable type for each module scope
-        if (expressiveTypes || forAutocomplete)
+        // Inject `shared` binding with Order magic callable type for each module scope.
+        // Unlike `script`, we always inject this regardless of expressiveTypes, because the require
+        // functionality should always work and we don't have the same Luau casting issue that
+        // requires the expressiveTypes guard for `script`.
+        if (auto node = isVirtualPath(name) ? getSourceNodeFromVirtualPath(name) : getSourceNodeFromRealPath(fileResolver->getUri(name)))
         {
-            if (auto node = isVirtualPath(name) ? getSourceNodeFromVirtualPath(name) : getSourceNodeFromRealPath(fileResolver->getUri(name)))
-            {
-                scope->bindings[Luau::AstName("shared")] = Luau::Binding{getOrderStringRequireType(globals, instanceTypes, node.value())};
-            }
+            scope->bindings[Luau::AstName("shared")] = Luau::Binding{getOrderStringRequireType(globals, instanceTypes, node.value())};
         }
 #endif
     };

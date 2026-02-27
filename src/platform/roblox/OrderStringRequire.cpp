@@ -26,6 +26,16 @@ struct MagicOrderStringRequire final : Luau::MagicFunction
     bool infer(const Luau::MagicFunctionCallContext& context) override;
 };
 
+static bool isNilableSharedCall(const Luau::AstExprCall& expr)
+{
+    if (expr.args.size >= 2)
+    {
+        if (auto boolArg = expr.args.data[1]->as<Luau::AstExprConstantBool>())
+            return boolArg->value;
+    }
+    return false;
+}
+
 std::optional<Luau::WithPredicate<Luau::TypePackId>> MagicOrderStringRequire::handleOldSolver(
     Luau::TypeChecker& typeChecker, const Luau::ScopePtr& scope, const Luau::AstExprCall& expr, Luau::WithPredicate<Luau::TypePackId>)
 {
@@ -43,6 +53,7 @@ std::optional<Luau::WithPredicate<Luau::TypePackId>> MagicOrderStringRequire::ha
     }
 
     auto moduleName = std::string(str->value.data, str->value.size);
+    bool nilable = isNilableSharedCall(expr);
 
     // Prevent self-requires
     if (node->name == moduleName)
@@ -54,6 +65,12 @@ std::optional<Luau::WithPredicate<Luau::TypePackId>> MagicOrderStringRequire::ha
     auto module = platform.findOrderStringModule(moduleName);
     if (!module.has_value())
     {
+        // When nilable flag is set, an unknown module resolves to nil instead of an error
+        if (nilable)
+        {
+            Luau::TypeArena& moduleArena = typeChecker.currentModule->internalTypes;
+            return Luau::WithPredicate<Luau::TypePackId>{moduleArena.addTypePack({globals.builtinTypes->nilType})};
+        }
         typeChecker.reportError(Luau::TypeError{expr.args.data[0]->location, Luau::UnknownRequire{moduleName}});
         return std::nullopt;
     }
@@ -61,7 +78,17 @@ std::optional<Luau::WithPredicate<Luau::TypePackId>> MagicOrderStringRequire::ha
     Luau::ModuleInfo moduleInfo;
     moduleInfo.name = module.value()->virtualPath;
 
-    return Luau::WithPredicate<Luau::TypePackId>{arena.addTypePack({typeChecker.checkRequire(scope, moduleInfo, expr.args.data[0]->location)})};
+    // Use the TypeChecker's own module arena (same as built-in MagicRequire::handleOldSolver),
+    // NOT instanceTypes. instanceTypes can be cleared/reallocated across sourcemap updates, making
+    // any TypePackIds allocated in it potentially stale during subsequent type checks.
+    Luau::TypeArena& moduleArena = typeChecker.currentModule->internalTypes;
+    Luau::TypeId resultTy = typeChecker.checkRequire(scope, moduleInfo, expr.args.data[0]->location);
+
+    // When the nilable flag is set, wrap the return type as T? (union with nil)
+    if (nilable)
+        resultTy = Luau::makeOption(globals.builtinTypes, moduleArena, resultTy);
+
+    return Luau::WithPredicate<Luau::TypePackId>{moduleArena.addTypePack({resultTy})};
 }
 
 bool MagicOrderStringRequire::infer(const Luau::MagicFunctionCallContext& context)
@@ -74,9 +101,16 @@ bool MagicOrderStringRequire::infer(const Luau::MagicFunctionCallContext& contex
         return false;
 
     auto moduleName = std::string(str->value.data, str->value.size);
+    bool nilable = isNilableSharedCall(*context.callSite);
     auto module = platform.findOrderStringModule(moduleName);
     if (!module.has_value())
     {
+        // When nilable flag is set, an unknown module resolves to nil instead of an error
+        if (nilable)
+        {
+            asMutable(context.result)->ty.emplace<Luau::BoundTypePack>(context.solver->arena->addTypePack({globals.builtinTypes->nilType}));
+            return true;
+        }
         context.solver->reportError(Luau::UnknownRequire{moduleName}, context.callSite->args.data[0]->location);
         return false;
     }
@@ -84,9 +118,13 @@ bool MagicOrderStringRequire::infer(const Luau::MagicFunctionCallContext& contex
     Luau::ModuleInfo moduleInfo;
     moduleInfo.name = module.value()->virtualPath;
 
-    asMutable(context.result)
-        ->ty.emplace<Luau::BoundTypePack>(
-            context.solver->arena->addTypePack({context.solver->resolveModule(moduleInfo, context.callSite->args.data[0]->location)}));
+    Luau::TypeId resultTy = context.solver->resolveModule(moduleInfo, context.callSite->args.data[0]->location);
+
+    // When the nilable flag is set, wrap the return type as T? (union with nil)
+    if (nilable)
+        resultTy = Luau::makeOption(context.solver->builtinTypes, *context.solver->arena, resultTy);
+
+    asMutable(context.result)->ty.emplace<Luau::BoundTypePack>(context.solver->arena->addTypePack({resultTy}));
 
     return true;
 }
@@ -104,39 +142,24 @@ Luau::TypeId RobloxPlatform::getOrderStringRequireType(const Luau::GlobalTypes& 
 {
     // Gets the type corresponding to the sourcemap node if it exists
     // Make sure to use the correct ty version (base typeChecker vs autocomplete typeChecker)
-    if (node->orderStringRequireTypes.find(&globals) != node->orderStringRequireTypes.end())
-        return node->orderStringRequireTypes.at(&globals);
+    if (auto it = node->orderStringRequireTypes.find(&globals); it != node->orderStringRequireTypes.end())
+        return it->second;
 
-    Luau::LazyType lazyTypeValue(
-        [&globals, this, &arena, node](Luau::LazyType& lazyTypeValue) -> void
-        {
-            // Check if the lazy type value already has an unwrapped type
-            if (lazyTypeValue.unwrapped.load())
-                return;
+    // Create a function type: (string, boolean?) -> any, with magic resolution.
+    // The optional boolean second parameter controls nilable returns.
+    // Note: we must NOT wrap this in a LazyType - both the old and new type solvers need to see the
+    // FunctionType directly so that the magic function is dispatched and the return type is resolved.
+    Luau::TypeId optionalBool = Luau::makeOption(globals.builtinTypes, arena, globals.builtinTypes->booleanType);
+    Luau::TypePackId argTypes = arena.addTypePack({globals.builtinTypes->stringType, optionalBool});
+    Luau::TypePackId retTypes = arena.addTypePack({globals.builtinTypes->anyType}); // Overridden by magic function
+    Luau::FunctionType functionCtv(argTypes, retTypes);
 
-            // Handle if the node is no longer valid
-            if (!node)
-            {
-                lazyTypeValue.unwrapped = globals.builtinTypes->anyType;
-                return;
-            }
+    auto typeId = arena.addType(std::move(functionCtv));
+    attachMagicOrderStringRequireFunction(globals, *this, arena, node, typeId);
 
-            // Create a function type: (string) -> any, with magic resolution
-            Luau::TypePackId argTypes = arena.addTypePack({globals.builtinTypes->stringType});
-            Luau::TypePackId retTypes = arena.addTypePack({globals.builtinTypes->anyType}); // Overridden by magic function
-            Luau::FunctionType functionCtv(argTypes, retTypes);
+    node->orderStringRequireTypes.insert_or_assign(&globals, typeId);
 
-            auto typeId = arena.addType(std::move(functionCtv));
-            attachMagicOrderStringRequireFunction(globals, *this, arena, node, typeId);
-
-            lazyTypeValue.unwrapped = typeId;
-            return;
-        });
-
-    auto ty = arena.addType(std::move(lazyTypeValue));
-    node->orderStringRequireTypes.insert_or_assign(&globals, ty);
-
-    return ty;
+    return typeId;
 }
 
 std::optional<const SourceNode*> RobloxPlatform::findOrderStringModule(const std::string& moduleName) const

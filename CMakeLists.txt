@@ -134,6 +134,7 @@ target_sources(Luau.LanguageServer.Test PRIVATE
     tests/SignatureHelp.test.cpp
     tests/Diagnostics.test.cpp
     tests/GoToDefinition.test.cpp
+    tests/DocumentLink.test.cpp
     tests/Glob.test.cpp
     tests/Workspace.test.cpp
     tests/RequireGraph.test.cpp
