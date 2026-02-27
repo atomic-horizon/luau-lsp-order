@@ -1,20 +1,20 @@
 {
-  "name": "luau-lsp",
-  "displayName": "Luau Language Server",
-  "description": "A Language Server Client for Luau",
-  "author": "JohnnyMorganz",
-  "publisher": "JohnnyMorganz",
+  "name": "luau-lsp-order",
+  "displayName": "Luau LSP - Order",
+  "description": "A Language Server Client for Luau by JohnnyMorganz, modified to support the Order framework.",
+  "author": "Atomic Horizon",
+  "publisher": "AtomicHorizon",
   "license": "MIT",
-  "icon": "assets/icon.png",
-  "homepage": "https://github.com/JohnnyMorganz/luau-lsp",
+  "icon": "assets/order.png",
+  "homepage": "https://github.com/AtomicHorizon/luau-lsp-order",
   "repository": {
     "type": "git",
-    "url": "https://github.com/JohnnyMorganz/luau-lsp"
+    "url": "https://github.com/AtomicHorizon/luau-lsp-order"
   },
   "bugs": {
-    "url": "https://github.com/JohnnyMorganz/luau-lsp/issues"
+    "url": "https://github.com/AtomicHorizon/luau-lsp-order/issues"
   },
-  "version": "1.62.0",
+  "version": "1.62.0-order",
   "engines": {
     "vscode": "^1.67.0"
   },
