@@ -328,9 +328,17 @@ Luau::CheckResult WorkspaceFolder::checkStrict(
     if (module && module->internalTypes.types.empty()) // If we didn't retain type graphs, then the internalTypes arena is empty
         frontend.markDirty(moduleName);
 
-    Luau::FrontendOptions options{/* retainFullTypeGraphs: */ true, forAutocomplete, /* runLintChecks: */ true};
-    options.cancellationToken = cancellationToken;
-    return frontend.check(moduleName, options);
+    try
+    {
+        Luau::FrontendOptions options{/* retainFullTypeGraphs: */ true, forAutocomplete, /* runLintChecks: */ true};
+        options.cancellationToken = cancellationToken;
+        return frontend.check(moduleName, options);
+    }
+    catch (Luau::InternalCompilerError& err)
+    {
+        client->sendLogMessage(lsp::MessageType::Warning, "Luau InternalCompilerError caught in " + moduleName + ": " + err.what());
+        return Luau::CheckResult{};
+    }
 }
 
 static const char* kIndexProgressToken = "luau/indexFiles";

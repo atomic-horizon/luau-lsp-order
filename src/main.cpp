@@ -196,7 +196,7 @@ int main(int argc, char** argv)
     Luau::assertHandler() = [](const char* expr, const char* file, int line, const char*) -> int
     {
         fprintf(stderr, "%s(%d): ASSERTION FAILED: %s\n", file, line, expr);
-        return 1;
+        return 0;
     };
 
     argparse::ArgumentParser program("luau-lsp", LSP_VERSION);

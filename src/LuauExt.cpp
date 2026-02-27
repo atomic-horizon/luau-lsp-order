@@ -436,7 +436,16 @@ lsp::Diagnostic createTypeErrorDiagnostic(const Luau::TypeError& error, Luau::Fi
     if (const auto* syntaxError = Luau::get_if<Luau::SyntaxError>(&error.data))
         message = "SyntaxError: " + syntaxError->message;
     else
-        message = "TypeError: " + Luau::toString(error, Luau::TypeErrorToStringOptions{fileResolver});
+    {
+        try
+        {
+            message = "TypeError: " + Luau::toString(error, Luau::TypeErrorToStringOptions{fileResolver});
+        }
+        catch (const Luau::InternalCompilerError& e)
+        {
+            message = "TypeError: [InternalCompilerError] " + std::string(e.what());
+        }
+    }
 
     lsp::Diagnostic diagnostic;
     diagnostic.source = "Luau";
