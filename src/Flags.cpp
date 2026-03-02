@@ -62,10 +62,10 @@ void registerFastFlags(std::unordered_map<std::string, std::string>& fastFlags, 
         }
     }
 
-    for (auto& [key, _] : fastFlags)
-    {
-        onWarning(std::string("Unknown FFlag: ") + key);
-    }
+    // for (auto& [key, _] : fastFlags)
+    // {
+    //     onWarning(std::string("Unknown FFlag: ") + key);
+    // }
 
 #ifdef LSP_BUILD_WITH_SENTRY
     sentry_set_tag("luau.new_solver_enabled", FFlag::LuauSolverV2 ? "true" : "false");
