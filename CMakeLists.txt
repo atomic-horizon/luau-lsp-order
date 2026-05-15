@@ -225,6 +225,14 @@ target_include_directories(Luau.LanguageServer.CLI PRIVATE src/include)
 target_include_directories(Luau.LanguageServer.CLI SYSTEM PRIVATE ${EXTERN_INCLUDES})
 target_link_libraries(Luau.LanguageServer.CLI PRIVATE Luau.LanguageServer Luau.Analysis)
 
+# Bump default 1MB stack reserve to 8MB. The Luau Unifier recurses up to its
+# RecursionLimiter ceiling (~165 frames) when unifying deeply-nested table/metatable/
+# union/function types, which fits in 1MB for Release builds but overflows in Debug
+# (no inlining = ~3-5x larger frames). 8MB gives plenty of headroom for both.
+if(MSVC)
+    target_link_options(Luau.LanguageServer.CLI PRIVATE /STACK:8388608)
+endif()
+
 target_compile_options(Luau.LanguageServer.Test PRIVATE ${LUAU_LSP_OPTIONS})
 target_include_directories(Luau.LanguageServer.Test PRIVATE tests)
 target_include_directories(Luau.LanguageServer.Test SYSTEM PRIVATE ${EXTERN_INCLUDES} extern/doctest)
