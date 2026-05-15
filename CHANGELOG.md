@@ -18,7 +18,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Fixed incorrect description for `require()` when platform is set to "standard." ([#1479](<https://github.com/JohnnyMorganz/luau-lsp/issues/1479>))
 - Fixed module aliases pointing to absolute Windows paths (e.g. `C:\...`) causing the type checker to load the same file twice under different module names, producing spurious type mismatch errors.
 - Fixed autocomplete-end incorrectly inserting `then`/`end` inside a string literal when Enter is pressed with the cursor inside a string used as an `if`/`while` condition ([#1453](https://github.com/JohnnyMorganz/luau-lsp/issues/1453))
-- Fixed `luau-lsp.completion.imports.useConst` setting missing from the VSCode extension manifest
+- Fixed `luau-lsp.completion.imports.useConst` setting missing from the VSCode
+  extension manifest
+
+## [1.67.1] - 2026-05-17
+### Fixed
+- Fixed `LUAU_ASSERT` firing in `trackInteriorFreeType`/`trackInteriorFreeTypePack` when the old type checker invokes `extendTypePack` via `MagicClone`. The tracking is new-solver infrastructure and is now skipped when no scope in the chain has it set up.
+- Fixed stack overflow during deeply-nested type unification in Debug builds; CLI now reserves an 8MB stack on Windows.
 
 ## [1.67.0] - 2026-05-10
 
