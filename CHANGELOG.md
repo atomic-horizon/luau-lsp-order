@@ -8,7 +8,122 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
-- Sync to upstream Luau 0.709
+- Improved anonymous autofilled function completions ([#688](https://github.com/JohnnyMorganz/luau-lsp/issues/688)):
+  - The generated snippet now places the cursor (`$0`) inside the function body and adds snippet tabstops on each parameter name for quick editing. If you do not want tabstops on parameter names, disable `luau-lsp.completion.anonymousAutofilledFunction.addTabstopForParameters` (default: `true`)
+  - Type annotations in the generated snippet can be disabled via setting `luau-lsp.completion.anonymousAutofilledFunction.addTypeAnnotations` (default: `true`)
+  - Deprecated setting `luau-lsp.completion.showAnonymousAutofilledFunction` in favour of `luau-lsp.completion.anonymousAutofilledFunction.enabled`
+
+### Fixed
+
+- Fixed incorrect description for `require()` when platform is set to "standard." ([#1479](<https://github.com/JohnnyMorganz/luau-lsp/issues/1479>))
+- Fixed module aliases pointing to absolute Windows paths (e.g. `C:\...`) causing the type checker to load the same file twice under different module names, producing spurious type mismatch errors.
+- Fixed autocomplete-end incorrectly inserting `then`/`end` inside a string literal when Enter is pressed with the cursor inside a string used as an `if`/`while` condition ([#1453](https://github.com/JohnnyMorganz/luau-lsp/issues/1453))
+- Fixed `luau-lsp.completion.imports.useConst` setting missing from the VSCode extension manifest
+
+## [1.67.0] - 2026-05-10
+
+### Added
+
+- Added `luau-lsp.completion.imports.useConst` setting to use `const` instead of `local` for auto-imported declarations ([#1423](https://github.com/JohnnyMorganz/luau-lsp/issues/1423))
+
+### Changed
+
+- Sync to upstream Luau 0.720
+- Sourcemap-based auto-imports (both instance and string versions) are now server/client boundary aware: we no longer suggest server scripts from client context and vice versa ([#1065](https://github.com/JohnnyMorganz/luau-lsp/issues/1065))
+- Improved performance of `workspace/symbol` request on large workspaces by deduplicating common transitive files when parsing the workspace
+
+### Fixed
+
+- String requires (including `@game` aliases and relative requires between DataModel siblings with non-mirrored filesystem layouts) now resolve correctly when using `luau-lsp analyze` with a sourcemap ([#1473](https://github.com/JohnnyMorganz/luau-lsp/issues/1473))
+- Auto-imported string requires from `init.luau` files now correctly use `@self/` paths for child modules when sourcemap-based requires are in use
+- Deprecated properties for Data Types (e.g. `Vector3.magnitude`, `Vector2.y`, `CFrame.p`) are now correctly filtered from autocompletion when `showDeprecatedItems` is disabled, and deprecated functions are annotated with `@deprecated` in generated type definitions ([#1477](https://github.com/JohnnyMorganz/luau-lsp/issues/1477))
+- Fixed an iterator-invalidation crash in `workspace/symbol` when a source module's source becomes unreadable or new dependencies are discovered during the request
+- Fixed `workspace/symbol` query filter incorrectly excluding symbols whose name begins with the query string and including symbols that did not match the query
+
+## [1.66.1] - 2026-04-27
+
+### Changed
+
+- Sync to upstream Luau 0.718
+
+### Fixed
+
+- Support chained aliases in `.luaurc` (e.g., an alias whose value references another `@alias`) ([#1458](https://github.com/JohnnyMorganz/luau-lsp/issues/1458))
+
+## [1.66.0] - 2026-04-11
+
+### Changed
+
+- Sync to upstream Luau 0.716
+- The minimum supported VSCode version is now 1.82.0
+- Renamed Studio Plugin settings from `luau-lsp.plugin.*` to `luau-lsp.studioPlugin.*` to avoid confusion with the source transform plugins (`luau-lsp.plugins.*`). The old `luau-lsp.plugin.*` settings are deprecated but still supported for backwards compatibility.
+
+### Fixed
+
+- Fixed `FindFirstAncestor` failing when ancestor name is a substring of another folder name in the path (e.g., `FindFirstAncestor("Foo")` failed when a folder named `PrefixFoo` existed in the path)
+- When a plugin is hot-reloaded, all source nodes (not just managed text documents) are now marked dirty so non-managed files are re-analysed with the updated plugin transformations
+- Plugin transformations are no longer applied to plugin files themselves ([#1433](https://github.com/JohnnyMorganz/luau-lsp/issues/1433))
+- Fixed string-require auto imports in Roblox mode ignoring user-defined aliases from `.luaurc`. Aliases are now preferred over `@game/...` paths when available ([#1436](https://github.com/JohnnyMorganz/luau-lsp/issues/1436))
+- Fixed `@self` alias not resolving and missing path autocomplete for string requires in Roblox mode ([#1432](https://github.com/JohnnyMorganz/luau-lsp/pull/1432))
+
+## [1.65.0] - 2026-04-06
+
+### Added
+
+- String requires are now sourcemap-aware when in Roblox mode. Relative requires from sourcemap-managed files walk the DataModel tree instead of the filesystem ([#1141](https://github.com/JohnnyMorganz/luau-lsp/issues/1141))
+- Added built-in `@game` alias for string requires in Roblox mode, resolving from the sourcemap root. User-defined `@game` in `.luaurc` takes precedence ([#1347](https://github.com/JohnnyMorganz/luau-lsp/issues/1347)). This alias is now considered during string require autocomplete when in Roblox mode.
+- Added refactoring code actions: Extract to local variable, Extract to function, Inline variable ([#606](https://github.com/JohnnyMorganz/luau-lsp/issues/606))
+- Added experimental Luau-based plugin system to allow you to perform source code transformations before Luau processes your code. This is useful for implementing features such as custom require resolution. This feature is still experimental and the API is subject to change in future releases. See [Plugin README](src/Plugin/README.md) for more information
+
+### Changed
+
+- Sync to upstream Luau 0.715
+
+### Fixed
+
+- Fixed crash when parsing YAML files with empty values (e.g. `key:` with no value)
+- Find All References, Rename, and auto imports no longer break after a sourcemap update ([#1115](https://github.com/JohnnyMorganz/luau-lsp/issues/1115))
+- Fixed fragment autocomplete incorrectly triggering inside comments when the cursor is positioned before any statement in the file ([#1416](https://github.com/JohnnyMorganz/luau-lsp/issues/1416))
+
+## [1.64.1] - 2026-03-30
+
+### Changed
+
+- Sync to upstream Luau 0.714
+
+## [1.64.0] - 2026-03-29
+
+### Changed
+
+- Sync to upstream Luau 0.712
+- Fragment autocomplete is now enabled by default ([#1268](https://github.com/JohnnyMorganz/luau-lsp/issues/1268))
+- Updated syntax file with improvements to TextMate grammar:
+  - Added support for type instantiation syntax (`<<`/`>>`) (e.g. `Map<<string, number>>`)
+  - Fixed nested type declarations inside indented blocks (e.g. inside `if`/`do` blocks) not being highlighted correctly
+  - Fixed multiline type declarations (e.g. `type Foo = \n  | string \n  | number`) losing type highlighting on continuation lines
+  - Fixed fenced ` ```luau ` code blocks in doc comments allowing syntax errors to escape past the closing ` ``` ` boundary
+  - Added syntax highlighting support for the `const` keyword, including `const` variable declarations and `const function` definitions
+
+## [1.63.0] - 2026-03-01
+
+### Removed
+
+- Removed deprecated `luau-lsp.require.fileAliases` and `luau-lsp.require.directoryAliases` configuration options. Use `.luaurc` / `.config.luau` aliases instead
+
+### Added
+
+- Documentation for built-in Luau functions (e.g. `math.abs`, `table.find`) is now provided in standard platform mode ([#1357](https://github.com/JohnnyMorganz/luau-lsp/issues/1357))
+
+### Changed
+
+- Sync to upstream Luau 0.710
+
+### Fixed
+
+- Fixed inlay hints showing `: (())` instead of `: ()` for functions returning empty type packs ([#1381](https://github.com/JohnnyMorganz/luau-lsp/issues/1381))
+- Fixed type functions in definition files causing `user-defined type function module has expired` errors ([#1382](https://github.com/JohnnyMorganz/luau-lsp/issues/1382))
+- Fixed require-by-string resolution not following symlinks ([#896](https://github.com/JohnnyMorganz/luau-lsp/issues/896))
+- Fixed auto-imports incorrectly showing when indexing a variable inside a table literal ([#1384](https://github.com/JohnnyMorganz/luau-lsp/issues/1384))
 
 ## [1.62.0] - 2026-02-14
 
@@ -1875,6 +1990,7 @@ local y = tbl.data -- Should give "This is some special information"
 ### Added
 
 - Added configuration options to enable certain Language Server features. By default, they are all enabled:
+
   - `luau-lsp.completion.enabled`: Autocomplete
   - `luau-lsp.hover.enabled`: Hover
   - `luau-lsp.signatureHelp.enabled`: Signature Help

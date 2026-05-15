@@ -2,6 +2,7 @@
 #include "Fixture.h"
 #include "Platform/RobloxPlatform.hpp"
 #include "LuauFileUtils.hpp"
+#include "Luau/Parser.h"
 
 using namespace Luau::LanguageServer;
 
@@ -9,7 +10,7 @@ TEST_SUITE_BEGIN("Definitions");
 
 TEST_CASE("use_platform_metadata_from_first_registered_definitions_file")
 {
-    Client client;
+    TestClient client;
     auto workspace = WorkspaceFolder(&client, "$TEST_WORKSPACE", Uri(), std::nullopt);
 
     client.definitionsFiles.emplace("@roblox", "./tests/testdata/standard_definitions.d.luau");
@@ -27,7 +28,7 @@ TEST_CASE("use_platform_metadata_from_first_registered_definitions_file")
 
 TEST_CASE("handles_definitions_files_relying_on_mutations")
 {
-    Client client;
+    TestClient client;
     auto workspace = WorkspaceFolder(&client, "$TEST_WORKSPACE", Uri::file(*Luau::FileUtils::getCurrentWorkingDirectory()), std::nullopt);
 
     client.definitionsFiles.emplace("@roblox", "./tests/testdata/standard_definitions.d.luau");
@@ -47,7 +48,7 @@ TEST_CASE("handles_definitions_files_relying_on_mutations")
 
 TEST_CASE("dont_crash_when_mutating_a_definitions_file_that_does_not_contain_expected_state")
 {
-    Client client;
+    TestClient client;
     auto workspace = WorkspaceFolder(&client, "$TEST_WORKSPACE", Uri(), std::nullopt);
 
     client.definitionsFiles.emplace("@roblox", "./tests/testdata/bad_standard_definitions.d.luau");
@@ -59,7 +60,7 @@ TEST_CASE("dont_crash_when_mutating_a_definitions_file_that_does_not_contain_exp
 
 TEST_CASE("support_disabling_global_types")
 {
-    Client client;
+    TestClient client;
     auto workspace = WorkspaceFolder(&client, "$TEST_WORKSPACE", Uri::file(*Luau::FileUtils::getCurrentWorkingDirectory()), std::nullopt);
 
     auto config = defaultTestClientConfiguration();
@@ -87,7 +88,7 @@ TEST_CASE("support_disabling_global_types")
 
 TEST_CASE("support_disabling_methods_in_global_types")
 {
-    Client client;
+    TestClient client;
     auto workspace = WorkspaceFolder(&client, "$TEST_WORKSPACE", Uri::file(*Luau::FileUtils::getCurrentWorkingDirectory()), std::nullopt);
 
     auto config = defaultTestClientConfiguration();
@@ -115,7 +116,7 @@ TEST_CASE("support_disabling_methods_in_global_types")
 
 TEST_CASE("package_name_is_recorded_onto_the_loaded_types")
 {
-    Client client;
+    TestClient client;
     auto workspace = WorkspaceFolder(&client, "$TEST_WORKSPACE", Uri::file(*Luau::FileUtils::getCurrentWorkingDirectory()), std::nullopt);
 
     client.definitionsFiles.emplace("@example", "./tests/testdata/standard_definitions.d.luau");
@@ -144,7 +145,7 @@ TEST_CASE("package_name_is_recorded_onto_the_loaded_types")
 
 TEST_CASE("support_disabling_methods_in_extern_types_globals")
 {
-    Client client;
+    TestClient client;
     auto workspace = WorkspaceFolder(&client, "$TEST_WORKSPACE", Uri::file(*Luau::FileUtils::getCurrentWorkingDirectory()), std::nullopt);
 
     client.definitionsFiles.emplace("@roblox", "./tests/testdata/standard_definitions.d.luau");
@@ -169,6 +170,22 @@ TEST_CASE("support_disabling_methods_in_extern_types_globals")
     REQUIRE(err);
     CHECK_EQ(Luau::toString(err->table), "DataModel");
     CHECK_EQ(err->key, "BindToClose");
+}
+
+TEST_CASE_FIXTURE(Fixture, "type_functions_in_definition_files_work")
+{
+    ENABLE_NEW_SOLVER();
+
+    loadDefinition("@test", R"(
+        export type function foo(ty)
+            return types.negationof(ty)
+        end
+    )");
+
+    auto result = check(R"(
+        local x: foo<number> = nil :: any
+    )");
+    REQUIRE(result.errors.empty());
 }
 
 TEST_SUITE_END();

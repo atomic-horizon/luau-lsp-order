@@ -7,6 +7,7 @@
 #include "Platform/StringRequireSuggester.hpp"
 #include "Platform/StringRequireAutoImporter.hpp"
 
+#include "Luau/StringUtils.h"
 #include "Luau/TimeTrace.h"
 #include <memory>
 #include <unordered_set>
@@ -41,8 +42,6 @@ std::optional<Uri> LSPPlatform::resolveToRealPath(const Luau::ModuleName& name) 
 std::optional<std::string> LSPPlatform::readSourceCode(const Luau::ModuleName& name, const Uri& path) const
 {
     LUAU_TIMETRACE_SCOPE("LSPPlatform::readSourceCode", "LSP");
-    if (auto textDocument = fileResolver->getTextDocumentFromModuleName(name))
-        return textDocument->getText();
 
     if (path.extension() == ".lua" || path.extension() == ".luau")
         return Luau::FileUtils::readFile(path.fsPath());
@@ -55,7 +54,8 @@ Uri resolveAliasLocation(const Luau::Config::AliasInfo& aliasInfo)
     return Uri::file(aliasInfo.configLocation).resolvePath(resolvePath(aliasInfo.value));
 }
 
-std::optional<Uri> resolveAlias(const std::string& path, const Luau::Config& config, const Uri& from)
+static std::optional<Uri> resolveAliasWithCycleCheck(
+    const std::string& path, const Luau::Config& config, const Uri& from, std::unordered_set<std::string>& visited)
 {
     if (path.size() < 1 || path[0] != '@')
         return std::nullopt;
@@ -88,7 +88,22 @@ std::optional<Uri> resolveAlias(const std::string& path, const Luau::Config& con
 
     Uri resolvedUri;
     if (auto aliasInfo = config.aliases.find(potentialAlias))
-        resolvedUri = resolveAliasLocation(*aliasInfo);
+    {
+        if (Luau::startsWith(aliasInfo->value, "@"))
+        {
+            if (!visited.insert(potentialAlias).second)
+                return std::nullopt;
+
+            auto chainedResolved = resolveAliasWithCycleCheck(aliasInfo->value, config, from, visited);
+            if (!chainedResolved)
+                return std::nullopt;
+            resolvedUri = *chainedResolved;
+        }
+        else
+        {
+            resolvedUri = resolveAliasLocation(*aliasInfo);
+        }
+    }
     else if (potentialAlias == "self")
         resolvedUri = from;
     else
@@ -107,29 +122,10 @@ std::optional<Uri> resolveAlias(const std::string& path, const Luau::Config& con
         return resolvedUri.resolvePath(remainder);
 }
 
-// DEPRECATED: Resolve the string using a directory alias if present
-std::optional<Uri> resolveDirectoryAlias(
-    const Uri& rootUri, const std::unordered_map<std::string, std::string>& directoryAliases, const std::string& str)
+std::optional<Uri> resolveAlias(const std::string& path, const Luau::Config& config, const Uri& from)
 {
-    for (const auto& [alias, directoryPath] : directoryAliases)
-    {
-        if (Luau::startsWith(str, alias))
-        {
-            std::string remainder = str.substr(alias.length());
-
-            // If remainder begins with a '/' character, we need to trim it off before it gets mistaken for an
-            // absolute path
-            remainder.erase(0, remainder.find_first_not_of("/\\"));
-
-            auto filePath = resolvePath(remainder.empty() ? directoryPath : Luau::FileUtils::joinPaths(directoryPath, remainder));
-            if (Luau::FileUtils::isAbsolutePath(filePath))
-                return Uri::file(filePath);
-            else
-                return rootUri.resolvePath(filePath);
-        }
-    }
-
-    return std::nullopt;
+    std::unordered_set<std::string> visited;
+    return resolveAliasWithCycleCheck(path, config, from, visited);
 }
 
 std::optional<Luau::ModuleInfo> LSPPlatform::resolveStringRequire(
@@ -163,20 +159,6 @@ std::optional<Luau::ModuleInfo> LSPPlatform::resolveStringRequire(
     if (auto aliasedPath = resolveAlias(requiredString, luauConfig, *contextPath->parent()))
     {
         fileUri = aliasedPath.value();
-    }
-    // DEPRECATED: Check for custom require overrides
-    else if (fileResolver->client)
-    {
-        // Check file aliases
-        if (auto it = clientConfig.require.fileAliases.find(requiredString); it != clientConfig.require.fileAliases.end())
-        {
-            fileUri = Uri::file(resolvePath(it->second));
-        }
-        // Check directory aliases
-        else if (auto directoryAliasedPath = resolveDirectoryAlias(fileResolver->rootUri, clientConfig.require.directoryAliases, requiredString))
-        {
-            fileUri = *directoryAliasedPath;
-        }
     }
 
     // Handle "init.luau" files in a directory
@@ -216,6 +198,11 @@ std::optional<Luau::AutocompleteEntryMap> LSPPlatform::completionCallback(
     return std::nullopt;
 }
 
+Luau::LanguageServer::AutoImports::ModuleVisitor LSPPlatform::getAutoImportsModuleVisitor(const Luau::ModuleName& /*from*/)
+{
+    return Luau::LanguageServer::AutoImports::defaultModuleVisitor(workspaceFolder->frontend);
+}
+
 void LSPPlatform::handleSuggestImports(const TextDocument& textDocument, const Luau::SourceModule& module, const ClientConfiguration& config,
     size_t hotCommentsLineNumber, bool completingTypeReferencePrefix, std::vector<lsp::CompletionItem>& items)
 {
@@ -229,11 +216,12 @@ void LSPPlatform::handleSuggestImports(const TextDocument& textDocument, const L
     Luau::LanguageServer::AutoImports::StringRequireAutoImporterContext ctx{
         module.name,
         Luau::NotNull(&textDocument),
-        Luau::NotNull(&workspaceFolder->frontend),
+        getAutoImportsModuleVisitor(module.name),
         Luau::NotNull(workspaceFolder),
         Luau::NotNull(&config.completion.imports),
         hotCommentsLineNumber,
         Luau::NotNull(&importsVisitor),
+        getAutoImportsRequirePathComputer(module.name, config.completion.imports.requireStyle),
     };
 
     return Luau::LanguageServer::AutoImports::suggestStringRequires(ctx, items);
@@ -255,11 +243,12 @@ void LSPPlatform::handleUnknownSymbolFix(const UnknownSymbolFixContext& ctx, con
     Luau::LanguageServer::AutoImports::StringRequireAutoImporterContext importCtx{
         ctx.sourceModule->name,
         Luau::NotNull(ctx.textDocument),
-        Luau::NotNull(&ctx.workspaceFolder->frontend),
+        getAutoImportsModuleVisitor(ctx.sourceModule->name),
         ctx.workspaceFolder,
         Luau::NotNull(&config.completion.imports),
         hotCommentsLineNumber,
         Luau::NotNull(&importsVisitor),
+        getAutoImportsRequirePathComputer(ctx.sourceModule->name, config.completion.imports.requireStyle),
         [&unknownSymbol](const std::string& requireName)
         {
             return requireName == unknownSymbol.name;
@@ -311,11 +300,12 @@ std::vector<lsp::TextEdit> LSPPlatform::computeAddAllMissingImportsEdits(
     Luau::LanguageServer::AutoImports::StringRequireAutoImporterContext importCtx{
         ctx.sourceModule->name,
         Luau::NotNull(ctx.textDocument),
-        Luau::NotNull(&ctx.workspaceFolder->frontend),
+        getAutoImportsModuleVisitor(ctx.sourceModule->name),
         ctx.workspaceFolder,
         Luau::NotNull(&config.completion.imports),
         hotCommentsLineNumber,
         Luau::NotNull(&importsVisitor),
+        getAutoImportsRequirePathComputer(ctx.sourceModule->name, config.completion.imports.requireStyle),
         [&unknownSymbols](const std::string& requireName)
         {
             return contains(unknownSymbols, requireName);

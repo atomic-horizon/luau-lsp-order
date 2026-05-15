@@ -495,7 +495,7 @@
                 {
                     "MemberType": "Function",
                     "Name": "toHSV",
-                    "Deprecated": true,
+                    "Tags": ["Deprecated"],
                     "Parameters": [
                         {
                             "Name": "color",
@@ -631,17 +631,42 @@
                             "Type": {
                                 "Name": "number"
                             }
+                        }
+                    ],
+                    "ReturnType": {
+                        "Name": "PhysicalProperties"
+                    }
+                },
+                {
+                    "MemberType": "Function",
+                    "Name": "new",
+                    "Parameters": [
+                        {
+                            "Name": "density",
+                            "Type": {
+                                "Name": "number"
+                            }
+                        },
+                        {
+                            "Name": "friction",
+                            "Type": {
+                                "Name": "number"
+                            }
+                        },
+                        {
+                            "Name": "elasticity",
+                            "Type": {
+                                "Name": "number"
+                            }
                         },
                         {
                             "Name": "frictionWeight",
-                            "Default": "nil",
                             "Type": {
                                 "Name": "number"
                             }
                         },
                         {
                             "Name": "elasticityWeight",
-                            "Default": "nil",
                             "Type": {
                                 "Name": "number"
                             }
@@ -669,6 +694,24 @@
                         },
                         {
                             "Name": "elasticity",
+                            "Type": {
+                                "Name": "number"
+                            }
+                        },
+                        {
+                            "Name": "frictionWeight",
+                            "Type": {
+                                "Name": "number"
+                            }
+                        },
+                        {
+                            "Name": "elasticityWeight",
+                            "Type": {
+                                "Name": "number"
+                            }
+                        },
+                        {
+                            "Name": "acousticAbsorption",
                             "Type": {
                                 "Name": "number"
                             }
@@ -2859,7 +2902,7 @@
                 {
                     "MemberType": "Property",
                     "Name": "y",
-                    "Deprecated": true,
+                    "Tags": ["Deprecated"],
                     "ValueType": {
                         "Name": "number"
                     }
@@ -2867,7 +2910,7 @@
                 {
                     "MemberType": "Property",
                     "Name": "x",
-                    "Deprecated": true,
+                    "Tags": ["Deprecated"],
                     "ValueType": {
                         "Name": "number"
                     }
@@ -2875,7 +2918,7 @@
                 {
                     "MemberType": "Property",
                     "Name": "unit",
-                    "Deprecated": true,
+                    "Tags": ["Deprecated"],
                     "ValueType": {
                         "Name": "Vector2"
                     }
@@ -2883,7 +2926,7 @@
                 {
                     "MemberType": "Property",
                     "Name": "magnitude",
-                    "Deprecated": true,
+                    "Tags": ["Deprecated"],
                     "ValueType": {
                         "Name": "number"
                     }
@@ -2891,7 +2934,7 @@
                 {
                     "MemberType": "Function",
                     "Name": "lerp",
-                    "Deprecated": true,
+                    "Tags": ["Deprecated"],
                     "Parameters": [
                         {
                             "Name": "v",
@@ -2984,7 +3027,7 @@
                 {
                     "MemberType": "Property",
                     "Name": "r",
-                    "Deprecated": true,
+                    "Tags": ["Deprecated"],
                     "ValueType": {
                         "Name": "number"
                     }
@@ -2992,7 +3035,7 @@
                 {
                     "MemberType": "Property",
                     "Name": "g",
-                    "Deprecated": true,
+                    "Tags": ["Deprecated"],
                     "ValueType": {
                         "Name": "number"
                     }
@@ -3000,7 +3043,7 @@
                 {
                     "MemberType": "Property",
                     "Name": "b",
-                    "Deprecated": true,
+                    "Tags": ["Deprecated"],
                     "ValueType": {
                         "Name": "number"
                     }
@@ -3008,7 +3051,7 @@
                 {
                     "MemberType": "Function",
                     "Name": "lerp",
-                    "Deprecated": true,
+                    "Tags": ["Deprecated"],
                     "Parameters": [
                         {
                             "Name": "color",
@@ -3082,6 +3125,13 @@
                 {
                     "MemberType": "Property",
                     "Name": "Friction",
+                    "ValueType": {
+                        "Name": "number"
+                    }
+                },
+                {
+                    "MemberType": "Property",
+                    "Name": "AcousticAbsorption",
                     "ValueType": {
                         "Name": "number"
                     }
@@ -3583,7 +3633,7 @@
                 {
                     "MemberType": "Property",
                     "Name": "z",
-                    "Deprecated": true,
+                    "Tags": ["Deprecated"],
                     "ValueType": {
                         "Name": "number"
                     }
@@ -3591,7 +3641,7 @@
                 {
                     "MemberType": "Property",
                     "Name": "y",
-                    "Deprecated": true,
+                    "Tags": ["Deprecated"],
                     "ValueType": {
                         "Name": "number"
                     }
@@ -3599,7 +3649,7 @@
                 {
                     "MemberType": "Property",
                     "Name": "x",
-                    "Deprecated": true,
+                    "Tags": ["Deprecated"],
                     "ValueType": {
                         "Name": "number"
                     }
@@ -3607,7 +3657,7 @@
                 {
                     "MemberType": "Function",
                     "Name": "pointToObjectSpace",
-                    "Deprecated": true,
+                    "Tags": ["Deprecated"],
                     "Parameters": [
                         {
                             "Name": "v3",
@@ -3623,14 +3673,14 @@
                 {
                     "MemberType": "Property",
                     "Name": "p",
-                    "Deprecated": true,
+                    "Tags": ["Deprecated"],
                     "ValueType": {
                         "Name": "Vector3"
                     }
                 },
                 {
                     "MemberType": "Property",
-                    "Deprecated": true,
+                    "Tags": ["Deprecated"],
                     "Name": "rightVector",
                     "ValueType": {
                         "Name": "Vector3"
@@ -3638,7 +3688,7 @@
                 },
                 {
                     "MemberType": "Function",
-                    "Deprecated": true,
+                    "Tags": ["Deprecated"],
                     "Name": "vectorToWorldSpace",
                     "Parameters": [
                         {
@@ -3655,7 +3705,7 @@
                 {
                     "MemberType": "Function",
                     "Name": "toAxisAngle",
-                    "Deprecated": true,
+                    "Tags": ["Deprecated"],
                     "Parameters": [],
                     "TupleReturns": [
                         {
@@ -3669,7 +3719,7 @@
                 {
                     "MemberType": "Function",
                     "Name": "inverse",
-                    "Deprecated": true,
+                    "Tags": ["Deprecated"],
                     "Parameters": [],
                     "ReturnType": {
                         "Name": "CFrame"
@@ -3678,7 +3728,7 @@
                 {
                     "MemberType": "Property",
                     "Name": "upVector",
-                    "Deprecated": true,
+                    "Tags": ["Deprecated"],
                     "ValueType": {
                         "Name": "Vector3"
                     }
@@ -3686,7 +3736,7 @@
                 {
                     "MemberType": "Function",
                     "Name": "lerp",
-                    "Deprecated": true,
+                    "Tags": ["Deprecated"],
                     "Parameters": [
                         {
                             "Name": "goal",
@@ -3708,7 +3758,7 @@
                 {
                     "MemberType": "Function",
                     "Name": "vectorToObjectSpace",
-                    "Deprecated": true,
+                    "Tags": ["Deprecated"],
                     "Parameters": [
                         {
                             "Name": "v3",
@@ -3724,7 +3774,7 @@
                 {
                     "MemberType": "Property",
                     "Name": "lookVector",
-                    "Deprecated": true,
+                    "Tags": ["Deprecated"],
                     "ValueType": {
                         "Name": "Vector3"
                     }
@@ -3732,7 +3782,7 @@
                 {
                     "MemberType": "Function",
                     "Name": "pointToWorldSpace",
-                    "Deprecated": true,
+                    "Tags": ["Deprecated"],
                     "Parameters": [
                         {
                             "Name": "v3",
@@ -3748,7 +3798,7 @@
                 {
                     "MemberType": "Function",
                     "Name": "toWorldSpace",
-                    "Deprecated": true,
+                    "Tags": ["Deprecated"],
                     "Parameters": [
                         {
                             "Name": "cf",
@@ -3764,7 +3814,7 @@
                 {
                     "MemberType": "Function",
                     "Name": "toObjectSpace",
-                    "Deprecated": true,
+                    "Tags": ["Deprecated"],
                     "Parameters": [
                         {
                             "Name": "cf",
@@ -3780,7 +3830,7 @@
                 {
                     "MemberType": "Function",
                     "Name": "toEulerAnglesXYZ",
-                    "Deprecated": true,
+                    "Tags": ["Deprecated"],
                     "Parameters": [],
                     "TupleReturns": [
                         {
@@ -3819,7 +3869,7 @@
                 {
                     "MemberType": "Function",
                     "Name": "components",
-                    "Deprecated": true,
+                    "Tags": ["Deprecated"],
                     "Parameters": [],
                     "TupleReturns": [
                         {
@@ -4216,7 +4266,7 @@
                 {
                     "MemberType": "Function",
                     "Name": "lerp",
-                    "Deprecated": true,
+                    "Tags": ["Deprecated"],
                     "Parameters": [
                         {
                             "Name": "goal",
@@ -4237,7 +4287,7 @@
                 },
                 {
                     "MemberType": "Property",
-                    "Deprecated": true,
+                    "Tags": ["Deprecated"],
                     "Name": "z",
                     "ValueType": {
                         "Name": "number"
@@ -4245,7 +4295,7 @@
                 },
                 {
                     "MemberType": "Property",
-                    "Deprecated": true,
+                    "Tags": ["Deprecated"],
                     "Name": "y",
                     "ValueType": {
                         "Name": "number"
@@ -4253,7 +4303,7 @@
                 },
                 {
                     "MemberType": "Property",
-                    "Deprecated": true,
+                    "Tags": ["Deprecated"],
                     "Name": "x",
                     "ValueType": {
                         "Name": "number"
@@ -4261,7 +4311,7 @@
                 },
                 {
                     "MemberType": "Property",
-                    "Deprecated": true,
+                    "Tags": ["Deprecated"],
                     "Name": "unit",
                     "ValueType": {
                         "Name": "Vector3"
@@ -4269,7 +4319,7 @@
                 },
                 {
                     "MemberType": "Property",
-                    "Deprecated": true,
+                    "Tags": ["Deprecated"],
                     "Name": "magnitude",
                     "ValueType": {
                         "Name": "number"
@@ -4418,7 +4468,7 @@
                 {
                     "MemberType": "Function",
                     "Name": "disconnect",
-                    "Deprecated": true,
+                    "Tags": ["Deprecated"],
                     "Parameters": [],
                     "ReturnType": {
                         "Name": "void"
@@ -4427,7 +4477,7 @@
                 {
                     "MemberType": "Property",
                     "Name": "connected",
-                    "Deprecated": true,
+                    "Tags": ["Deprecated"],
                     "ValueType": {
                         "Name": "bool"
                     }
@@ -4496,7 +4546,7 @@
                 {
                     "MemberType": "Function",
                     "Name": "wait",
-                    "Deprecated": true,
+                    "Tags": ["Deprecated"],
                     "Parameters": [],
                     "ReturnType": {
                         "Name": "Variant"
@@ -4505,7 +4555,7 @@
                 {
                     "MemberType": "Function",
                     "Name": "connect",
-                    "Deprecated": true,
+                    "Tags": ["Deprecated"],
                     "Parameters": [
                         {
                             "Name": "callback",
@@ -4723,6 +4773,20 @@
                 },
                 {
                     "MemberType": "Property",
+                    "Name": "ExcludeInstances",
+                    "ValueType": {
+                        "Name": "Objects"
+                    }
+                },
+                {
+                    "MemberType": "Property",
+                    "Name": "IncludeInstances",
+                    "ValueType": {
+                        "Name": "Objects"
+                    }
+                },
+                {
+                    "MemberType": "Property",
                     "Name": "IgnoreWater",
                     "ValueType": {
                         "Name": "boolean"
@@ -4793,6 +4857,20 @@
                 },
                 {
                     "MemberType": "Property",
+                    "Name": "ExcludeInstances",
+                    "ValueType": {
+                        "Name": "Objects"
+                    }
+                },
+                {
+                    "MemberType": "Property",
+                    "Name": "IncludeInstances",
+                    "ValueType": {
+                        "Name": "Objects"
+                    }
+                },
+                {
+                    "MemberType": "Property",
                     "Name": "CollisionGroup",
                     "ValueType": {
                         "Name": "string"
@@ -4801,6 +4879,13 @@
                 {
                     "MemberType": "Property",
                     "Name": "MaxParts",
+                    "ValueType": {
+                        "Name": "number"
+                    }
+                },
+                {
+                    "MemberType": "Property",
+                    "Name": "Tolerance",
                     "ValueType": {
                         "Name": "number"
                     }
