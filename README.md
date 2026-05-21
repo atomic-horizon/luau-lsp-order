@@ -9,15 +9,11 @@ Learn more at https://order.atomichorizon.net/
 
 Install the extension from the VSCode Marketplace or OpenVSX Registry:
 
-- VSCode Marketplace: <https://marketplace.visualstudio.com/items?itemName=JohnnyMorganz.luau-lsp>
-- OpenVSX Registry: <https://open-vsx.org/extension/JohnnyMorganz/luau-lsp>
+- VSCode Marketplace: <https://marketplace.visualstudio.com/items?itemName=AtomicHorizon.luau-lsp-order>
+- OpenVSX Registry: <https://open-vsx.org/extension/AtomicHorizon/luau-lsp-order>
 
-Alternatively, check out [Getting Started for Language Server Clients](https://github.com/JohnnyMorganz/luau-lsp/blob/main/editors/README.md)
+Alternatively, check out [Getting Started for Language Server Clients](https://github.com/atomic-horizon/luau-lsp-order/blob/main/editors/README.md)
 to setup your own client for a different editor.
-
-A [Nightly Release](https://github.com/JohnnyMorganz/luau-lsp/actions/workflows/nightly.yml) runs every day with the latest changes on main.
-You can download the relevant release for your platform and manually install the `.vsix`.
-The nightly release builds with debug symbols and profiling instrumentation for debugging.
 
 ### For General Users
 
@@ -131,7 +127,7 @@ Crash Reporting is only available for Windows and macOS, and is not active for S
 Submodules are required to build the project. You should use `--recurse-submodules` when you initally clone the project; e.g.
 
 ```sh
-git clone https://github.com/JohnnyMorganz/luau-lsp.git --recurse-submodules
+git clone https://github.com/atomic-horizon/luau-lsp-order.git --recurse-submodules
 ```
 
 To compile the project, execute the following commands in the project root directory.
