@@ -6,15 +6,15 @@
   "publisher": "AtomicHorizon",
   "license": "MIT",
   "icon": "assets/order.png",
-  "homepage": "https://github.com/AtomicHorizon/luau-lsp-order",
+  "homepage": "https://order.atomichorizon.net/",
   "repository": {
     "type": "git",
-    "url": "https://github.com/AtomicHorizon/luau-lsp-order"
+    "url": "https://github.com/atomic-horizon/luau-lsp-order"
   },
   "bugs": {
-    "url": "https://github.com/AtomicHorizon/luau-lsp-order/issues"
+    "url": "https://github.com/atomic-horizon/luau-lsp-order/issues"
   },
-  "version": "1.67.1",
+  "version": "1.67.2",
   "engines": {
     "vscode": "^1.82.0"
   },

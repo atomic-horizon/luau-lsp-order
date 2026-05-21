@@ -21,7 +21,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Fixed `luau-lsp.completion.imports.useConst` setting missing from the VSCode
   extension manifest
 
+## [1.67.2] - 2026-05-21
+
+### Changed
+
+- Auto-import for module requires now inserts `shared("ModuleName")` instead of
+  `require(...)` to match the Order runtime convention. The existing
+  `stringRequires.enabled` and `requireStyle` settings are bypassed in this mode.
+- `shared` is now typed as a callable table (`{[any]: any}` indexer with a
+  `__call` metamethod) instead of a plain function. Field access like
+  `shared.foo = 5` now type-checks; calling `shared("Module"[, true])` still
+  resolves to the target module's type.
+
+### Fixed
+
+- `shared("Self")` from inside its own module now reports `UnknownRequire` under
+  the new type solver (previously only the old solver caught self-requires).
+
 ## [1.67.1] - 2026-05-17
+
 ### Fixed
 - Fixed `LUAU_ASSERT` firing in `trackInteriorFreeType`/`trackInteriorFreeTypePack` when the old type checker invokes `extendTypePack` via `MagicClone`. The tracking is new-solver infrastructure and is now skipped when no scope in the chain has it set up.
 - Fixed stack overflow during deeply-nested type unification in Debug builds; CLI now reserves an 8MB stack on Windows.
