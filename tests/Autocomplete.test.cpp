@@ -2530,4 +2530,46 @@ TEST_CASE_FIXTURE(Fixture, "anonymous_autofilled_function_snippet_no_param_tabst
     CHECK_EQ(*item.insertText, "function(x: number, y: string)\n\t$0\nend");
 }
 
+#ifdef ORDER_STRING_REQUIRE
+TEST_CASE_FIXTURE(Fixture, "shared_call_string_autocomplete_lists_modules")
+{
+    loadSourcemap(R"({
+        "name": "Game",
+        "className": "DataModel",
+        "children": [
+            {
+                "name": "ServerStorage",
+                "className": "ServerStorage",
+                "children": [
+                    { "name": "AlphaModule", "className": "ModuleScript", "filePaths": ["alpha.luau"] },
+                    { "name": "BetaModule", "className": "ModuleScript", "filePaths": ["beta.luau"] }
+                ]
+            },
+            {
+                "name": "ServerScriptService",
+                "className": "ServerScriptService",
+                "children": [{ "name": "Main", "className": "Script", "filePaths": ["main.luau"] }]
+            }
+        ]
+    })");
+
+    newDocument("alpha.luau", "return 1");
+    newDocument("beta.luau", "return 2");
+
+    auto [source, marker] = sourceWithMarker(R"(
+        local _ = shared("|")
+    )");
+    auto uri = newDocument("main.luau", source);
+
+    lsp::CompletionParams params;
+    params.textDocument = lsp::TextDocumentIdentifier{uri};
+    params.position = marker;
+
+    auto result = workspace.completion(params, nullptr);
+
+    checkStringCompletionExists(result, "AlphaModule");
+    checkStringCompletionExists(result, "BetaModule");
+}
+#endif
+
 TEST_SUITE_END();

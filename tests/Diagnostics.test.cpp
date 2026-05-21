@@ -244,4 +244,78 @@ TEST_CASE_FIXTURE(Fixture, "document_diagnostics_respects_cancellation")
     CHECK_THROWS_AS(workspace.documentDiagnostics(lsp::DocumentDiagnosticParams{{document}}, cancellationToken), RequestCancelledException);
 }
 
+#ifdef ORDER_STRING_REQUIRE
+TEST_CASE_FIXTURE(Fixture, "shared_call_with_unknown_module_reports_unknown_require")
+{
+    loadSourcemap(R"({
+        "name": "Game",
+        "className": "DataModel",
+        "children": [
+            {
+                "name": "ServerScriptService",
+                "className": "ServerScriptService",
+                "children": [{ "name": "Main", "className": "Script", "filePaths": ["main.luau"] }]
+            }
+        ]
+    })");
+
+    auto document = newDocument("main.luau", R"(
+        local _ = shared("MissingModule")
+    )");
+
+    auto diagnostics = workspace.documentDiagnostics(lsp::DocumentDiagnosticParams{{document}}, nullptr);
+    REQUIRE_EQ(diagnostics.items.size(), 1);
+    CHECK_EQ(diagnostics.items[0].message, "TypeError: Unknown require: MissingModule");
+}
+
+TEST_CASE_FIXTURE(Fixture, "shared_call_self_require_reports_unknown_require")
+{
+    loadSourcemap(R"({
+        "name": "Game",
+        "className": "DataModel",
+        "children": [
+            {
+                "name": "ServerStorage",
+                "className": "ServerStorage",
+                "children": [{ "name": "Main", "className": "ModuleScript", "filePaths": ["main.luau"] }]
+            }
+        ]
+    })");
+
+    auto document = newDocument("main.luau", R"(
+        local _ = shared("Main")
+        return {}
+    )");
+
+    auto diagnostics = workspace.documentDiagnostics(lsp::DocumentDiagnosticParams{{document}}, nullptr);
+    REQUIRE_EQ(diagnostics.items.size(), 1);
+    CHECK_EQ(diagnostics.items[0].message, "TypeError: Unknown require: Main");
+}
+
+TEST_CASE_FIXTURE(Fixture, "shared_field_access_does_not_report_diagnostic")
+{
+    loadSourcemap(R"({
+        "name": "Game",
+        "className": "DataModel",
+        "children": [
+            {
+                "name": "ServerScriptService",
+                "className": "ServerScriptService",
+                "children": [{ "name": "Main", "className": "Script", "filePaths": ["main.luau"] }]
+            }
+        ]
+    })");
+
+    auto document = newDocument("main.luau", R"(
+        shared.foo = 5
+        shared["bar"] = "baz"
+        local _ = shared.foo
+        local _ = shared.bar
+    )");
+
+    auto diagnostics = workspace.documentDiagnostics(lsp::DocumentDiagnosticParams{{document}}, nullptr);
+    CHECK_EQ(diagnostics.items.size(), 0);
+}
+#endif
+
 TEST_SUITE_END();
