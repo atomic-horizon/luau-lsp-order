@@ -52,7 +52,7 @@ int startLanguageServer(const argparse::ArgumentParser& program)
         std::optional<std::string> crashReportDirectory = program.present<std::string>("--crash-report-directory");
 
         sentry_options_t* options = sentry_options_new();
-        sentry_options_set_dsn(options, "https://bc658c75485d1aecbaf1c0c1f7980922@o4509305213026304.ingest.de.sentry.io/4509305221283920");
+        sentry_options_set_dsn(options, "https://9536c6b36204d071482569d176e4ff57@o4511428929519616.ingest.us.sentry.io/4511428944789504");
 
         if (crashReportDirectory.has_value())
         {
