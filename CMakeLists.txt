@@ -75,6 +75,7 @@ target_sources(Luau.LanguageServer PRIVATE
     src/platform/StringRequireAutoImporter.cpp
     src/platform/StringRequireSuggester.cpp
     src/platform/roblox/InstanceRequireAutoImporter.cpp
+    src/platform/roblox/OrderSharedAutoImporter.cpp
     src/platform/roblox/RobloxCodeAction.cpp
     src/platform/roblox/RobloxColorProvider.cpp
     src/platform/roblox/RobloxCompletion.cpp

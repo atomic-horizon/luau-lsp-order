@@ -86,6 +86,16 @@ lsp::TextEdit createRequireTextEdit(const std::string& name, const std::string& 
     return {range, importText};
 }
 
+lsp::TextEdit createSharedRequireTextEdit(
+    const std::string& name, const std::string& sharedName, size_t lineNumber, bool prependNewline, bool useConst)
+{
+    auto range = lsp::Range{{lineNumber, 0}, {lineNumber, 0}};
+    auto importText = std::string(declarationKeyword(useConst)) + name + " = shared(\"" + sharedName + "\")\n";
+    if (prependNewline)
+        importText = "\n" + importText;
+    return {range, importText};
+}
+
 lsp::CompletionItem createSuggestRequire(const std::string& name, const std::vector<lsp::TextEdit>& textEdits, const char* sortText,
     const std::string& path, const std::string& requirePath)
 {

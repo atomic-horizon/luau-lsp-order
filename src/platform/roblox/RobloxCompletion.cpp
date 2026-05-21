@@ -8,6 +8,9 @@
 #include "Platform/AutoImports.hpp"
 #include "Platform/InstanceRequireAutoImporter.hpp"
 #include "Platform/StringRequireAutoImporter.hpp"
+#ifdef ORDER_STRING_REQUIRE
+#include "Platform/OrderSharedAutoImporter.hpp"
+#endif
 
 LUAU_FASTFLAG(LuauSolverV2)
 
@@ -290,6 +293,19 @@ void RobloxPlatform::handleSuggestImports(const TextDocument& textDocument, cons
 
     if (config.completion.imports.suggestRequires)
     {
+#ifdef ORDER_STRING_REQUIRE
+        Luau::LanguageServer::AutoImports::OrderSharedAutoImporterContext ctx{
+            module.name,
+            Luau::NotNull(&textDocument),
+            Luau::NotNull(workspaceFolder),
+            Luau::NotNull(&config.completion.imports),
+            hotCommentsLineNumber,
+            Luau::NotNull(&importsVisitor),
+            Luau::NotNull(this),
+        };
+
+        return Luau::LanguageServer::AutoImports::suggestSharedRequires(ctx, items);
+#else
         if (config.completion.imports.stringRequires.enabled)
         {
             Luau::LanguageServer::AutoImports::StringRequireAutoImporterContext ctx{
@@ -320,5 +336,6 @@ void RobloxPlatform::handleSuggestImports(const TextDocument& textDocument, cons
 
             return Luau::LanguageServer::AutoImports::suggestInstanceRequires(ctx, items);
         }
+#endif
     }
 }
