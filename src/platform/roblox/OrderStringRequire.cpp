@@ -145,21 +145,33 @@ Luau::TypeId RobloxPlatform::getOrderStringRequireType(const Luau::GlobalTypes& 
     if (auto it = node->orderStringRequireTypes.find(&globals); it != node->orderStringRequireTypes.end())
         return it->second;
 
-    // Create a function type: (string, boolean?) -> any, with magic resolution.
-    // The optional boolean second parameter controls nilable returns.
-    // Note: we must NOT wrap this in a LazyType - both the old and new type solvers need to see the
-    // FunctionType directly so that the magic function is dispatched and the return type is resolved.
+    // Model `shared` as a callable table: a table with an `[any]: any` indexer wrapped by a
+    // metatable supplying `__call`. The `__call` function carries the magic resolver and tags,
+    // matching the runtime where `shared` is a table whose metatable makes it callable.
+    // `self` is `any` to avoid a recursive type construction; the magic function reads args
+    // off the AST and never inspects self.
     Luau::TypeId optionalBool = Luau::makeOption(globals.builtinTypes, arena, globals.builtinTypes->booleanType);
-    Luau::TypePackId argTypes = arena.addTypePack({globals.builtinTypes->stringType, optionalBool});
-    Luau::TypePackId retTypes = arena.addTypePack({globals.builtinTypes->anyType}); // Overridden by magic function
-    Luau::FunctionType functionCtv(argTypes, retTypes);
+    Luau::TypePackId callArgs = arena.addTypePack({globals.builtinTypes->anyType, globals.builtinTypes->stringType, optionalBool});
+    Luau::TypePackId callRets = arena.addTypePack({globals.builtinTypes->anyType}); // Overridden by magic function
+    Luau::TypeId callFnTy = arena.addType(Luau::FunctionType{callArgs, callRets});
 
-    auto typeId = arena.addType(std::move(functionCtv));
-    attachMagicOrderStringRequireFunction(globals, *this, arena, node, typeId);
+    // Magic + tags live on the __call function so that solver/typecheck/autocomplete sites
+    // that unwrap __call via findMetatableEntry pick them up.
+    attachMagicOrderStringRequireFunction(globals, *this, arena, node, callFnTy);
 
-    node->orderStringRequireTypes.insert_or_assign(&globals, typeId);
+    // Metatable: { __call = callFnTy }
+    Luau::TypeId metatableTy = arena.addType(Luau::TableType{{}, std::nullopt, Luau::TypeLevel{}, Luau::TableState::Sealed});
+    Luau::getMutable<Luau::TableType>(metatableTy)->props["__call"] = Luau::Property{callFnTy};
 
-    return typeId;
+    // Inner table: sealed, with a `[any]: any` indexer so arbitrary keys can be read/written.
+    Luau::TableIndexer indexer{globals.builtinTypes->anyType, globals.builtinTypes->anyType};
+    Luau::TypeId innerTableTy = arena.addType(Luau::TableType{{}, indexer, Luau::TypeLevel{}, Luau::TableState::Sealed});
+
+    Luau::TypeId sharedTy = arena.addType(Luau::MetatableType{innerTableTy, metatableTy});
+
+    node->orderStringRequireTypes.insert_or_assign(&globals, sharedTy);
+
+    return sharedTy;
 }
 
 std::optional<const SourceNode*> RobloxPlatform::findOrderStringModule(const std::string& moduleName) const
