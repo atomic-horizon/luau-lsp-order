@@ -102,6 +102,14 @@ bool MagicOrderStringRequire::infer(const Luau::MagicFunctionCallContext& contex
 
     auto moduleName = std::string(str->value.data, str->value.size);
     bool nilable = isNilableSharedCall(*context.callSite);
+
+    // Prevent self-requires (mirrors the old-solver path).
+    if (node->name == moduleName)
+    {
+        context.solver->reportError(Luau::UnknownRequire{moduleName}, context.callSite->args.data[0]->location);
+        return false;
+    }
+
     auto module = platform.findOrderStringModule(moduleName);
     if (!module.has_value())
     {
