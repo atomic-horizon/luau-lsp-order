@@ -1,6 +1,9 @@
-# Luau Language Server
+# Luau Language Server - Order
 
-An implementation of a language server for the [Luau](https://github.com/Roblox/luau) programming language.
+A fork of JohnnyMorganz's implementation of a language server for the
+[Luau](https://github.com/Roblox/luau) programming language. This version
+incorporates changes to support the Order framework for Roblox game development.
+Learn more at https://order.atomichorizon.net/
 
 ## Getting Started
 
@@ -19,7 +22,8 @@ The nightly release builds with debug symbols and profiling instrumentation for 
 ### For General Users
 
 The language server will start working immediately for general Luau code. There is built-in support
-for Luau's generalised [require-by-string semantics](https://rfcs.luau.org/new-require-by-string-semantics.html), using `require("./module")`.
+for Order and Luau's generalised [require-by-string semantics](https://rfcs.luau.org/new-require-by-string-semantics.html), using
+`require("./module")` (Luau) or `shared("ModuleName")` (Order).
 
 To provide global type definitions for a custom environment, specify `luau-lsp.types.definitionFiles`.
 Corresponding documentation is configured using `luau-lsp.types.documentationFiles`.
