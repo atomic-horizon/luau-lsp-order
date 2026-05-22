@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [1.68.1] - 2026-05-22
+
 ### Changed
 
 - Sync to upstream Luau 0.722
@@ -52,6 +54,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [1.67.1] - 2026-05-17
 
 ### Fixed
+
 - Fixed `LUAU_ASSERT` firing in `trackInteriorFreeType`/`trackInteriorFreeTypePack` when the old type checker invokes `extendTypePack` via `MagicClone`. The tracking is new-solver infrastructure and is now skipped when no scope in the chain has it set up.
 - Fixed stack overflow during deeply-nested type unification in Debug builds; CLI now reserves an 8MB stack on Windows.
 
