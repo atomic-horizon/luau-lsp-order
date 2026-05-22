@@ -8,21 +8,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
-- Improved anonymous autofilled function completions ([#688](https://github.com/JohnnyMorganz/luau-lsp/issues/688)):
-  - The generated snippet now places the cursor (`$0`) inside the function body and adds snippet tabstops on each parameter name for quick editing. If you do not want tabstops on parameter names, disable `luau-lsp.completion.anonymousAutofilledFunction.addTabstopForParameters` (default: `true`)
-  - Type annotations in the generated snippet can be disabled via setting `luau-lsp.completion.anonymousAutofilledFunction.addTypeAnnotations` (default: `true`)
-  - Deprecated setting `luau-lsp.completion.showAnonymousAutofilledFunction` in favour of `luau-lsp.completion.anonymousAutofilledFunction.enabled`
+- Sync to upstream Luau 0.722
 
 ### Fixed
 
 - Added an SEH guard (Windows) around `Frontend::check` calls in `WorkspaceFolder::checkSimple` and `checkStrict`. The old type solver intermittently produces an access violation in `Substitution::substitute` / `Luau::follow` when an incremental check encounters a stale cross-module `TypeId` (Sentry NATIVE-1 / NATIVE-2 — `get_if<T>` at a heap address). The LSP now catches `EXCEPTION_ACCESS_VIOLATION`, reports it to Sentry as a handled exception, marks the offending module dirty so the next request retries from scratch, and returns an empty result for the failing request instead of taking down the process. The underlying Luau frontend invariant violation is not fixed; this is recovery, not a cure.
 - Fixed a recurring access-violation crash in the old type solver when type-checking files containing many `shared("…")` calls. The previous attempt to model `shared` as a callable table (`MetatableType` with `[any]: any` indexer and `__call`) triggered a null-pointer dereference deep inside `Normalizer::unionNormalWithTy` during dependency-cascade unification. `shared` is now modelled as a plain function `(string, boolean?) -> any` with the magic resolver attached, restoring the original behaviour. Field access on `shared` (e.g. `shared.foo = 5`) reverts to typing as `any` rather than being structurally validated; the runtime is unaffected. The accompanying Luau-submodule patches that unwrap `__call` for magic dispatch remain in place and are harmless when no callable table is present.
 - Fixed `shared("Self")` from inside its own module not reporting `UnknownRequire` under the new type solver. The self-require check now fires in both solvers.
-- Fixed incorrect description for `require()` when platform is set to "standard." ([#1479](<https://github.com/JohnnyMorganz/luau-lsp/issues/1479>))
+
+## [1.68.0] - 2026-05-16
+
+### Changed
+
+- Improved anonymous autofilled function completions ([#688](https://github.com/JohnnyMorganz/luau-lsp/issues/688)):
+  - The generated snippet now places the cursor (`$0`) inside the function body and adds snippet tabstops on each parameter name for quick editing. If you do not want tabstops on parameter names, disable `luau-lsp.completion.anonymousAutofilledFunction.addTabstopForParameters` (default: `true`)
+  - Type annotations in the generated snippet can be disabled via setting `luau-lsp.completion.anonymousAutofilledFunction.addTypeAnnotations` (default: `true`)
+  - Deprecated setting `luau-lsp.completion.showAnonymousAutofilledFunction` in favour of `luau-lsp.completion.anonymousAutofilledFunction.enabled`
+- Sync to upstream Luau 0.721
+
+### Fixed
+
+- Fixed incorrect description for `require()` when platform is set to "standard." ([#1479](https://github.com/JohnnyMorganz/luau-lsp/issues/1479))
 - Fixed module aliases pointing to absolute Windows paths (e.g. `C:\...`) causing the type checker to load the same file twice under different module names, producing spurious type mismatch errors.
 - Fixed autocomplete-end incorrectly inserting `then`/`end` inside a string literal when Enter is pressed with the cursor inside a string used as an `if`/`while` condition ([#1453](https://github.com/JohnnyMorganz/luau-lsp/issues/1453))
-- Fixed `luau-lsp.completion.imports.useConst` setting missing from the VSCode
-  extension manifest
+- Fixed `luau-lsp.completion.imports.useConst` setting missing from the VSCode extension manifest
 
 ## [1.67.2] - 2026-05-21
 
@@ -2017,7 +2026,6 @@ local y = tbl.data -- Should give "This is some special information"
 ### Added
 
 - Added configuration options to enable certain Language Server features. By default, they are all enabled:
-
   - `luau-lsp.completion.enabled`: Autocomplete
   - `luau-lsp.hover.enabled`: Hover
   - `luau-lsp.signatureHelp.enabled`: Signature Help
