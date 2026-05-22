@@ -1,5 +1,6 @@
 #include "Platform/RobloxPlatform.hpp"
 #include "LSP/JsonTomlSyntaxParser.hpp"
+#include "LSP/Sentry.hpp"
 #include "Luau/BuiltinDefinitions.h"
 #include "Luau/ConstraintSolver.h"
 #include "Luau/TypeInfer.h"
@@ -148,38 +149,22 @@ static void attachMagicOrderStringRequireFunction(
 
 Luau::TypeId RobloxPlatform::getOrderStringRequireType(const Luau::GlobalTypes& globals, Luau::TypeArena& arena, const SourceNode* node) const
 {
-    // Gets the type corresponding to the sourcemap node if it exists
-    // Make sure to use the correct ty version (base typeChecker vs autocomplete typeChecker)
-    if (auto it = node->orderStringRequireTypes.find(&globals); it != node->orderStringRequireTypes.end())
-        return it->second;
+    LspSentry::addBreadcrumb("order.shared.build", "shared FunctionType built for " + node->name, "arena", LspSentry::formatPointer(&arena));
 
-    // Model `shared` as a callable table: a table with an `[any]: any` indexer wrapped by a
-    // metatable supplying `__call`. The `__call` function carries the magic resolver and tags,
-    // matching the runtime where `shared` is a table whose metatable makes it callable.
-    // `self` is `any` to avoid a recursive type construction; the magic function reads args
-    // off the AST and never inspects self.
+    // `shared` is typed as a plain function `(string, boolean?) -> any` with a magic resolver
+    // attached. The runtime is actually a callable table, but a previous attempt to model that
+    // as a MetatableType triggered a Luau old-solver crash in `Normalizer::unionNormalWithTy`
+    // when many `shared(...)` calls were unified during dependency-cascade type checking
+    // (a null was reaching a UnionType's options vector somewhere downstream). Field access
+    // on `shared` (e.g. `shared.foo = 5`) types as `any` here, which is the original behavior
+    // and matches the runtime functionally even though it doesn't structurally model the table.
     Luau::TypeId optionalBool = Luau::makeOption(globals.builtinTypes, arena, globals.builtinTypes->booleanType);
-    Luau::TypePackId callArgs = arena.addTypePack({globals.builtinTypes->anyType, globals.builtinTypes->stringType, optionalBool});
-    Luau::TypePackId callRets = arena.addTypePack({globals.builtinTypes->anyType}); // Overridden by magic function
-    Luau::TypeId callFnTy = arena.addType(Luau::FunctionType{callArgs, callRets});
+    Luau::TypePackId argTypes = arena.addTypePack({globals.builtinTypes->stringType, optionalBool});
+    Luau::TypePackId retTypes = arena.addTypePack({globals.builtinTypes->anyType}); // Overridden by magic function
+    Luau::TypeId fnTy = arena.addType(Luau::FunctionType{argTypes, retTypes});
 
-    // Magic + tags live on the __call function so that solver/typecheck/autocomplete sites
-    // that unwrap __call via findMetatableEntry pick them up.
-    attachMagicOrderStringRequireFunction(globals, *this, arena, node, callFnTy);
-
-    // Metatable: { __call = callFnTy }
-    Luau::TypeId metatableTy = arena.addType(Luau::TableType{{}, std::nullopt, Luau::TypeLevel{}, Luau::TableState::Sealed});
-    Luau::getMutable<Luau::TableType>(metatableTy)->props["__call"] = Luau::Property{callFnTy};
-
-    // Inner table: sealed, with a `[any]: any` indexer so arbitrary keys can be read/written.
-    Luau::TableIndexer indexer{globals.builtinTypes->anyType, globals.builtinTypes->anyType};
-    Luau::TypeId innerTableTy = arena.addType(Luau::TableType{{}, indexer, Luau::TypeLevel{}, Luau::TableState::Sealed});
-
-    Luau::TypeId sharedTy = arena.addType(Luau::MetatableType{innerTableTy, metatableTy});
-
-    node->orderStringRequireTypes.insert_or_assign(&globals, sharedTy);
-
-    return sharedTy;
+    attachMagicOrderStringRequireFunction(globals, *this, arena, node, fnTy);
+    return fnTy;
 }
 
 std::optional<const SourceNode*> RobloxPlatform::findOrderStringModule(const std::string& moduleName) const

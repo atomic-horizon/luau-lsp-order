@@ -10,6 +10,7 @@
 #include "LSP/Uri.hpp"
 #include "LSP/DocumentationParser.hpp"
 #include "LSP/Diagnostics.hpp"
+#include "LSP/Sentry.hpp"
 
 #ifdef LSP_BUILD_WITH_SENTRY
 // sentry.h pulls in <windows.h>
@@ -162,6 +163,8 @@ void LanguageServer::onRequest(const id_type& id, const std::string& method, std
 {
     LUAU_TIMETRACE_SCOPE("LanguageServer::onRequest", "LSP");
     LUAU_TIMETRACE_ARGUMENT("method", method.c_str());
+
+    LspSentry::addBreadcrumb("lsp.request", method);
 
     // Handle request
     // If a request has been sent before the server is initialized, we should error

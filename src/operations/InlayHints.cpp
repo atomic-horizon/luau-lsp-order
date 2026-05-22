@@ -1,4 +1,5 @@
 #include "LSP/DocumentationParser.hpp"
+#include "LSP/Sentry.hpp"
 #include "LSP/Workspace.hpp"
 
 #include <algorithm>
@@ -396,6 +397,8 @@ lsp::InlayHintResult WorkspaceFolder::inlayHint(const lsp::InlayHintParams& para
     auto config = client->getConfiguration(rootUri);
 
     auto moduleName = fileResolver.getModuleName(params.textDocument.uri);
+    LspSentry::addBreadcrumb("op.inlayHint", "inlayHint " + moduleName, "uri", params.textDocument.uri.toString());
+
     auto textDocument = fileResolver.getTextDocument(params.textDocument.uri);
     if (!textDocument)
         throw JsonRpcException(lsp::ErrorCode::RequestFailed, "No managed text document for " + params.textDocument.uri.toString());

@@ -3,6 +3,7 @@
 #include <memory>
 
 #include "LSP/Diagnostics.hpp"
+#include "LSP/Sentry.hpp"
 #include "Platform/LSPPlatform.hpp"
 #include "Platform/RobloxPlatform.hpp"
 #include "Plugin/PluginManager.hpp"
@@ -13,7 +14,72 @@
 #include "Luau/TimeTrace.h"
 #include "LuauFileUtils.hpp"
 
+#ifdef _WIN32
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#endif
+
 LUAU_FASTFLAG(LuauSolverV2)
+
+// SEH guard around `frontend.check`. The old type solver occasionally produces
+// access violations when stale cross-module TypeId references survive an
+// incremental check (Sentry NATIVE-1/NATIVE-2 - `Substitution::substitute` /
+// `follow` / `get_if<T>` at a heap address). Catching and reporting the AV lets
+// the LSP keep running; the user can retry the request.
+//
+// MSVC SEH cannot live in a function that requires object unwinding (C2712).
+// The C++ work that touches Luau::CheckResult must happen in a separate
+// function; the SEH-bearing function uses only raw pointers.
+#ifdef _WIN32
+static int sehAccessViolationFilter(unsigned int code)
+{
+    return code == EXCEPTION_ACCESS_VIOLATION ? EXCEPTION_EXECUTE_HANDLER : EXCEPTION_CONTINUE_SEARCH;
+}
+
+static void doFrontendCheck(Luau::Frontend* frontend, const Luau::ModuleName* moduleName,
+    const Luau::FrontendOptions* options, Luau::CheckResult* outResult)
+{
+    *outResult = frontend->check(*moduleName, *options);
+}
+
+static bool runCheckWithSehGuard(Luau::Frontend* frontend, const Luau::ModuleName* moduleName,
+    const Luau::FrontendOptions* options, Luau::CheckResult* outResult)
+{
+    __try
+    {
+        doFrontendCheck(frontend, moduleName, options, outResult);
+        return true;
+    }
+    __except (sehAccessViolationFilter(GetExceptionCode()))
+    {
+        return false;
+    }
+}
+#endif
+
+static Luau::CheckResult guardedFrontendCheck(Luau::Frontend& frontend, const Luau::ModuleName& moduleName, const Luau::FrontendOptions& options)
+{
+#ifdef _WIN32
+    Luau::CheckResult result;
+    if (runCheckWithSehGuard(&frontend, &moduleName, &options, &result))
+        return result;
+
+    // Access violation recovered. Report to Sentry and mark the module dirty so the
+    // next request retries from a clean rebuild of its dependency graph.
+    LspSentry::addBreadcrumb("frontend.recovered", "caught EXCEPTION_ACCESS_VIOLATION in frontend.check for " + moduleName);
+    LspSentry::captureHandledException(
+        "RecoveredAccessViolation", "Frontend::check access violation recovered for module: " + moduleName);
+    frontend.markDirty(moduleName);
+    return Luau::CheckResult{};
+#else
+    return frontend.check(moduleName, options);
+#endif
+}
 
 void throwIfCancelled(const LSPCancellationToken& cancellationToken)
 {
@@ -331,7 +397,7 @@ Luau::CheckResult WorkspaceFolder::checkSimple(const Luau::ModuleName& moduleNam
     {
         Luau::FrontendOptions options{/* retainFullTypeGraphs: */ false, /* forAutocomplete: */ false, /* runLintChecks: */ true};
         options.cancellationToken = cancellationToken;
-        return frontend.check(moduleName, options);
+        return guardedFrontendCheck(frontend, moduleName, options);
     }
     catch (Luau::InternalCompilerError& err)
     {
@@ -365,7 +431,7 @@ Luau::CheckResult WorkspaceFolder::checkStrict(
     {
         Luau::FrontendOptions options{/* retainFullTypeGraphs: */ true, forAutocomplete, /* runLintChecks: */ true};
         options.cancellationToken = cancellationToken;
-        return frontend.check(moduleName, options);
+        return guardedFrontendCheck(frontend, moduleName, options);
     }
     catch (Luau::InternalCompilerError& err)
     {

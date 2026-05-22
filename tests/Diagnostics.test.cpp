@@ -292,30 +292,11 @@ TEST_CASE_FIXTURE(Fixture, "shared_call_self_require_reports_unknown_require")
     CHECK_EQ(diagnostics.items[0].message, "TypeError: Unknown require: Main");
 }
 
-TEST_CASE_FIXTURE(Fixture, "shared_field_access_does_not_report_diagnostic")
-{
-    loadSourcemap(R"({
-        "name": "Game",
-        "className": "DataModel",
-        "children": [
-            {
-                "name": "ServerScriptService",
-                "className": "ServerScriptService",
-                "children": [{ "name": "Main", "className": "Script", "filePaths": ["main.luau"] }]
-            }
-        ]
-    })");
-
-    auto document = newDocument("main.luau", R"(
-        shared.foo = 5
-        shared["bar"] = "baz"
-        local _ = shared.foo
-        local _ = shared.bar
-    )");
-
-    auto diagnostics = workspace.documentDiagnostics(lsp::DocumentDiagnosticParams{{document}}, nullptr);
-    CHECK_EQ(diagnostics.items.size(), 0);
-}
+// NOTE: a previous version of this fork modelled `shared` as a callable table with a
+// `[any]: any` indexer, which let `shared.foo = 5` type-check. That structure triggered
+// a Luau old-solver crash during dependency-cascade unification, so `shared` is now
+// modelled as a plain function and field access on it is no longer structurally
+// validated (the runtime is unaffected).
 #endif
 
 TEST_SUITE_END();

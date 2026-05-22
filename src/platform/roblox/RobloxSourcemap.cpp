@@ -1,11 +1,16 @@
 #include "Luau/TypeFwd.h"
 #include "Platform/RobloxPlatform.hpp"
 
+#include "LSP/Sentry.hpp"
 #include "LSP/Workspace.hpp"
 #include "Luau/BuiltinDefinitions.h"
 #include "Luau/ConstraintSolver.h"
 #include "Luau/TimeTrace.h"
 #include "LuauFileUtils.hpp"
+
+#include <atomic>
+
+static std::atomic<uint64_t> g_sourcemapEpoch{0};
 
 LUAU_FASTFLAG(LuauSolverV2)
 
@@ -245,6 +250,8 @@ static Luau::TypeId getSourcemapType(const Luau::GlobalTypes& globals, Luau::Typ
     if (node->tys.find(&globals) != node->tys.end())
         return node->tys.at(&globals);
 
+    LspSentry::addBreadcrumb("sourcemap.buildScript", "LazyType built for " + node->name, "arena", LspSentry::formatPointer(&arena));
+
     Luau::LazyType ltv(
         [&globals, &arena, node](Luau::LazyType& ltv) -> void
         {
@@ -377,9 +384,6 @@ static void clearSourcemapGeneratedTypes(Luau::GlobalTypes& globals)
 static void clearTypesFromSourcemapNodes(SourceNode* node)
 {
     node->tys.clear();
-#ifdef ORDER_STRING_REQUIRE
-    node->orderStringRequireTypes.clear();
-#endif
     for (const auto& child : node->children)
         clearTypesFromSourcemapNodes(child);
 }
@@ -387,6 +391,10 @@ static void clearTypesFromSourcemapNodes(SourceNode* node)
 void RobloxPlatform::clearSourcemapTypes()
 {
     LUAU_TIMETRACE_SCOPE("RobloxPlatform::clearSourcemapTypes", "LSP");
+    const uint64_t epoch = ++g_sourcemapEpoch;
+    LspSentry::setTag("sourcemap.epoch", std::to_string(epoch));
+    LspSentry::addBreadcrumb("sourcemap.clear", "clearSourcemapTypes epoch=" + std::to_string(epoch), "arena", LspSentry::formatPointer(&instanceTypes));
+
     for (const auto& [name, _] : workspaceFolder->frontend.sourceNodes)
         workspaceFolder->frontend.markDirty(name);
     instanceTypes.clear();             // NOTE: used across BOTH instances of handleSourcemapUpdate, don't clear in between!
@@ -558,6 +566,9 @@ void RobloxPlatform::updateSourceNodeMap(const std::string& sourceMapContents)
 void RobloxPlatform::handleSourcemapUpdate(Luau::Frontend& frontend, const Luau::GlobalTypes& globals, bool expressiveTypes)
 {
     LUAU_TIMETRACE_SCOPE("RobloxPlatform::handleSourcemapUpdate", "LSP");
+    LspSentry::addBreadcrumb("sourcemap.handleUpdate",
+        std::string("handleSourcemapUpdate expressive=") + (expressiveTypes ? "true" : "false"), "globals", LspSentry::formatPointer(&globals));
+
     if (!rootSourceNode)
         return;
 
@@ -629,6 +640,9 @@ void RobloxPlatform::handleSourcemapUpdate(Luau::Frontend& frontend, const Luau:
     frontend.prepareModuleScope = [this, &frontend, expressiveTypes](const Luau::ModuleName& name, const Luau::ScopePtr& scope, bool forAutocomplete)
     {
         Luau::GlobalTypes& globals = (forAutocomplete && !FFlag::LuauSolverV2) ? frontend.globalsForAutocomplete : frontend.globals;
+
+        LspSentry::addBreadcrumb("scope.prep",
+            std::string("prepareModuleScope ") + name + (forAutocomplete ? " (autocomplete)" : ""), "arena", LspSentry::formatPointer(&instanceTypes));
 
         // TODO: we hope to remove these in future!
         if (!expressiveTypes && !forAutocomplete && !FFlag::LuauSolverV2)

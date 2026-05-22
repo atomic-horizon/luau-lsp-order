@@ -44,11 +44,6 @@ struct SourceNode
     // A different TypeId is created for each type checker (frontend.typeChecker and frontend.typeCheckerForAutocomplete)
     mutable std::unordered_map<Luau::GlobalTypes const*, Luau::TypeId> tys{}; // NB: NOT POPULATED BY SOURCEMAP, created manually. Can be null!
 
-#ifdef ORDER_STRING_REQUIRE
-    // The corresponding callable TypeId for Order string requires on this node
-    mutable std::unordered_map<Luau::GlobalTypes const*, Luau::TypeId> orderStringRequireTypes{};
-#endif
-
     SourceNode(
         std::string name, std::string className, std::vector<std::string> filePaths, std::vector<SourceNode*> children, bool pluginManaged = false);
 

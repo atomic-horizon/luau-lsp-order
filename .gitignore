@@ -50,3 +50,6 @@ trace.json
 
 # Python venvs
 .venv
+
+# Claude
+.claude/

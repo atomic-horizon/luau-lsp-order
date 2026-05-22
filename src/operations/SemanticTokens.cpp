@@ -1,4 +1,5 @@
 #include "LSP/SemanticTokens.hpp"
+#include "LSP/Sentry.hpp"
 #include "LSP/Workspace.hpp"
 
 #include "Luau/AstQuery.h"
@@ -411,6 +412,8 @@ std::optional<lsp::SemanticTokens> WorkspaceFolder::semanticTokens(
     const lsp::SemanticTokensParams& params, const LSPCancellationToken& cancellationToken)
 {
     auto moduleName = fileResolver.getModuleName(params.textDocument.uri);
+    LspSentry::addBreadcrumb("op.semanticTokens", "semanticTokens " + moduleName, "uri", params.textDocument.uri.toString());
+
     auto textDocument = fileResolver.getTextDocument(params.textDocument.uri);
     if (!textDocument)
         throw JsonRpcException(lsp::ErrorCode::RequestFailed, "No managed text document for " + params.textDocument.uri.toString());
