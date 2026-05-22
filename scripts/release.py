@@ -4,8 +4,14 @@
 
 import sys
 import json
+import shutil
 import subprocess
 from datetime import datetime
+
+# Resolve full paths to `npm`/`npx` so subprocess.run works on Windows where
+# these are `.cmd` shims (Python 3.13 no longer resolves PATHEXT for bare names).
+NPM = shutil.which("npm") or "npm"
+NPX = shutil.which("npx") or "npx"
 
 CHANGELOG_FILE = "CHANGELOG.md"
 MAKE_FILE = "CMakeLists.txt"
@@ -55,11 +61,11 @@ with open(PACKAGE_JSON_FILE, "w") as t:
     json.dump(package_json_data, t)
 
 # Update lockfile
-subprocess.run(["npm", "install", "--package-locked"], cwd="editors/code", check=True)
+subprocess.run([NPM, "install", "--package-locked"], cwd="editors/code", check=True)
 
 # Run prettier
 subprocess.run(
-    ["npx", "prettier", "--write", CHANGELOG_FILE, PACKAGE_JSON_FILE], check=True
+    [NPX, "prettier", "--write", CHANGELOG_FILE, PACKAGE_JSON_FILE], check=True
 )
 
 # Commit
