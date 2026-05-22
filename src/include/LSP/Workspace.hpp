@@ -1,5 +1,6 @@
 #pragma once
 #include <memory>
+#include <unordered_set>
 #include "Platform/LSPPlatform.hpp"
 #include "Luau/TypeCheckLimits.h"
 #include "Luau/Frontend.h"
@@ -49,6 +50,13 @@ public:
     /// Workspaces are initialized lazily on demand.
     /// When a new request comes in and the workspace is not ready, we will prepare it then.
     bool isReady = false;
+
+    /// Modules whose last Frontend::check call raised an access violation that the SEH guard
+    /// recovered from. While in this set, subsequent guarded checks short-circuit to an empty
+    /// result instead of re-running Frontend::check (which would deterministically crash again
+    /// on the same broken cross-module state). Cleared on any real input change for a module:
+    /// document edit/open/close, watched file change, plugin reload, or sourcemap reload.
+    std::unordered_set<Luau::ModuleName> poisonedModules{};
 
 private:
     struct DefinitionsFileState

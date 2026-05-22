@@ -410,6 +410,11 @@ bool RobloxPlatform::updateSourceMapFromContents(const std::string& sourceMapCon
     LUAU_TIMETRACE_SCOPE("RobloxPlatform::updateSourceMapFromContents", "LSP");
     workspaceFolder->client->sendTrace("Sourcemap file read successfully");
 
+    // Sourcemap reload invalidates the cross-module type graph that the SEH-guarded check
+    // path keys poison on. Drop the set so previously poisoned modules get one fresh attempt
+    // against the new graph.
+    workspaceFolder->poisonedModules.clear();
+
     updateSourceNodeMap(sourceMapContents);
 
     workspaceFolder->client->sendTrace("Loaded sourcemap nodes");

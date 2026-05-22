@@ -62,21 +62,27 @@ static bool runCheckWithSehGuard(Luau::Frontend* frontend, const Luau::ModuleNam
 }
 #endif
 
-static Luau::CheckResult guardedFrontendCheck(Luau::Frontend& frontend, const Luau::ModuleName& moduleName, const Luau::FrontendOptions& options)
+static Luau::CheckResult guardedFrontendCheck(Luau::Frontend& frontend, std::unordered_set<Luau::ModuleName>& poisonedModules,
+    const Luau::ModuleName& moduleName, const Luau::FrontendOptions& options)
 {
 #ifdef _WIN32
+    // Modules whose last guarded check raised an access violation stay short-circuited until
+    // a real input change clears the poison. Retrying would re-trigger the same crash and
+    // flood Sentry (NATIVE-5 saw 81 events on a single module in one session before this guard).
+    if (poisonedModules.count(moduleName) > 0)
+        return Luau::CheckResult{};
+
     Luau::CheckResult result;
     if (runCheckWithSehGuard(&frontend, &moduleName, &options, &result))
         return result;
 
-    // Access violation recovered. Report to Sentry and mark the module dirty so the
-    // next request retries from a clean rebuild of its dependency graph.
     LspSentry::addBreadcrumb("frontend.recovered", "caught EXCEPTION_ACCESS_VIOLATION in frontend.check for " + moduleName);
     LspSentry::captureHandledException(
         "RecoveredAccessViolation", "Frontend::check access violation recovered for module: " + moduleName);
-    frontend.markDirty(moduleName);
+    poisonedModules.insert(moduleName);
     return Luau::CheckResult{};
 #else
+    (void)poisonedModules;
     return frontend.check(moduleName, options);
 #endif
 }
@@ -104,6 +110,7 @@ void WorkspaceFolder::openTextDocument(const lsp::DocumentUri& uri, const lsp::D
     // Mark the file as dirty as we don't know what changes were made to it
     auto moduleName = fileResolver.getModuleName(uri);
     frontend.markDirty(moduleName);
+    poisonedModules.erase(moduleName);
 }
 
 static bool isWorkspaceDiagnosticsEnabled(const Client* client, const ClientConfiguration& config)
@@ -131,6 +138,8 @@ void WorkspaceFolder::updateTextDocument(const lsp::DocumentUri& uri, const lsp:
 
     // Mark the module dirty for the typechecker
     frontend.markDirty(fileResolver.getModuleName(uri), &markedDirty);
+    for (const auto& name : markedDirty)
+        poisonedModules.erase(name);
 
     // In pull based diagnostics module, documentDiagnostics will update the necessary files
     // But if we are still using push-based diagnostics, we need to send updates
@@ -219,6 +228,7 @@ void WorkspaceFolder::closeTextDocument(const lsp::DocumentUri& uri)
     auto config = client->getConfiguration(rootUri);
     auto moduleName = fileResolver.getModuleName(uri);
     frontend.markDirty(moduleName);
+    poisonedModules.erase(moduleName);
 
     // Refresh workspace diagnostics to clear diagnostics on ignored files
     if (!config.diagnostics.workspace || isIgnoredFile(uri))
@@ -300,6 +310,7 @@ void WorkspaceFolder::onDidChangeWatchedFiles(const std::vector<lsp::FileEvent>&
             // Note: we should always mark as dirty, even if the file is ignored
             auto moduleName = fileResolver.getModuleName(change.uri);
             frontend.markDirty(moduleName, &dirtyFiles);
+            poisonedModules.erase(moduleName);
 
             if (change.type == lsp::FileChangeType::Deleted)
                 deletedFiles.push_back(change.uri);
@@ -385,6 +396,7 @@ void WorkspaceFolder::reloadPlugins()
     // Any source node could have plugin transformations applied (including non-managed files), so mark all dirty
     for (const auto& [name, _] : frontend.sourceNodes)
         frontend.markDirty(name);
+    poisonedModules.clear();
 }
 
 // Runs `Frontend::check` on the module and DISCARDS THE TYPE GRAPH.
@@ -397,7 +409,7 @@ Luau::CheckResult WorkspaceFolder::checkSimple(const Luau::ModuleName& moduleNam
     {
         Luau::FrontendOptions options{/* retainFullTypeGraphs: */ false, /* forAutocomplete: */ false, /* runLintChecks: */ true};
         options.cancellationToken = cancellationToken;
-        return guardedFrontendCheck(frontend, moduleName, options);
+        return guardedFrontendCheck(frontend, poisonedModules, moduleName, options);
     }
     catch (Luau::InternalCompilerError& err)
     {
@@ -431,7 +443,7 @@ Luau::CheckResult WorkspaceFolder::checkStrict(
     {
         Luau::FrontendOptions options{/* retainFullTypeGraphs: */ true, forAutocomplete, /* runLintChecks: */ true};
         options.cancellationToken = cancellationToken;
-        return guardedFrontendCheck(frontend, moduleName, options);
+        return guardedFrontendCheck(frontend, poisonedModules, moduleName, options);
     }
     catch (Luau::InternalCompilerError& err)
     {
