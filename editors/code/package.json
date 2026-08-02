@@ -14,7 +14,7 @@
   "bugs": {
     "url": "https://github.com/atomic-horizon/luau-lsp-order/issues"
   },
-  "version": "1.69.1",
+  "version": "1.69.2",
   "engines": {
     "vscode": "^1.82.0"
   },
