@@ -1,5 +1,6 @@
 #include "LSP/Sentry.hpp"
 
+#include <cstdint>
 #include <cstdio>
 
 #ifdef LSP_BUILD_WITH_SENTRY
