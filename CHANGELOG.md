@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- The Order `shared` global is now typed as what it is at runtime — a callable table — instead of a plain function. `shared.PlaceType` resolves to `string`, `shared.Assets` to `Folder`, `shared._OrderInitialized` to `boolean?` and `shared.CodeGroups` to `{[string]: true}` (fields the Order bootstrap populates before any module loads), `shared(...)` calls resolve through a `__call` metamethod exactly as before, and any other field access falls back to `any`
+
 ## [1.69.1] - 2026-08-02
 
 ### Changed

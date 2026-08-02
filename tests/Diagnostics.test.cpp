@@ -380,11 +380,113 @@ TEST_CASE_FIXTURE(Fixture, "shared_requires_survive_sourcemap_reload")
     CHECK_EQ(diagnostics.items.size(), 0);
 }
 
-// NOTE: a previous version of this fork modelled `shared` as a callable table with a
-// `[any]: any` indexer, which let `shared.foo = 5` type-check. That structure triggered
-// a Luau old-solver crash during dependency-cascade unification, so `shared` is now
-// modelled as a plain function and field access on it is no longer structurally
-// validated (the runtime is unaffected).
+TEST_CASE_FIXTURE(Fixture, "shared_place_type_is_string")
+{
+    auto document = newDocument("main.luau", R"(
+        --!strict
+        local pt: string = shared.PlaceType
+        local bad: number = shared.PlaceType
+        print(pt, bad)
+    )");
+
+    // Only the string -> number assignment should error, proving PlaceType is `string`, not `any`
+    auto diagnostics = workspace.documentDiagnostics(lsp::DocumentDiagnosticParams{{document}}, nullptr);
+    CHECK_EQ(diagnostics.items.size(), 1);
+}
+
+TEST_CASE_FIXTURE(Fixture, "shared_assets_is_an_instance_type")
+{
+    // The full Roblox definitions type `shared.Assets` as Folder; the minimal test
+    // definitions do not declare Folder, so registration falls back to Instance
+    auto document = newDocument("main.luau", R"(
+        --!strict
+        local assets: Instance = shared.Assets
+        print(assets)
+    )");
+
+    auto diagnostics = workspace.documentDiagnostics(lsp::DocumentDiagnosticParams{{document}}, nullptr);
+    CHECK_EQ(diagnostics.items.size(), 0);
+}
+
+TEST_CASE_FIXTURE(Fixture, "shared_framework_fields_are_typed")
+{
+    auto document = newDocument("main.luau", R"(
+        --!strict
+        local initialized: boolean? = shared._OrderInitialized
+        local codeGroups: { [string]: true } = shared.CodeGroups
+        print(initialized, codeGroups)
+    )");
+
+    auto diagnostics = workspace.documentDiagnostics(lsp::DocumentDiagnosticParams{{document}}, nullptr);
+    CHECK_EQ(diagnostics.items.size(), 0);
+
+    // Mismatched annotations prove the fields are precisely typed rather than `any`
+    auto badDocument = newDocument("bad.luau", R"(
+        --!strict
+        local initialized: number = shared._OrderInitialized
+        local codeGroups: string = shared.CodeGroups
+        print(initialized, codeGroups)
+    )");
+
+    diagnostics = workspace.documentDiagnostics(lsp::DocumentDiagnosticParams{{badDocument}}, nullptr);
+    CHECK_EQ(diagnostics.items.size(), 2);
+}
+
+TEST_CASE_FIXTURE(Fixture, "shared_unknown_field_falls_back_to_any")
+{
+    auto document = newDocument("main.luau", R"(
+        --!strict
+        local x: number = shared.DefinitelyNotAField
+        shared.SomeOtherField = { x }
+        print(x)
+    )");
+
+    // Unknown fields hit the `[string]: any` indexer: reads and writes are permitted
+    auto diagnostics = workspace.documentDiagnostics(lsp::DocumentDiagnosticParams{{document}}, nullptr);
+    CHECK_EQ(diagnostics.items.size(), 0);
+}
+
+TEST_CASE_FIXTURE(Fixture, "shared_globals_survive_dependency_cascade_rechecks")
+{
+    // Regression guard: an earlier callable-table model of `shared` crashed the old solver
+    // during dependency-cascade unification (many modules re-checked after a common
+    // dependency changed). Recreate that shape: two consumers calling shared() and reading
+    // shared fields, then edit the common module to force the cascade.
+    loadSourcemap(R"({
+        "name": "Game",
+        "className": "DataModel",
+        "children": [
+            {
+                "name": "ReplicatedStorage",
+                "className": "ReplicatedStorage",
+                "children": [
+                    { "name": "Common", "className": "ModuleScript", "filePaths": ["common.luau"] },
+                    { "name": "ConsumerA", "className": "ModuleScript", "filePaths": ["a.luau"] },
+                    { "name": "ConsumerB", "className": "ModuleScript", "filePaths": ["b.luau"] }
+                ]
+            }
+        ]
+    })");
+
+    auto commonDocument = newDocument("common.luau", "return { value = 1 }");
+    auto documentA = newDocument("a.luau", R"(
+        local Common = shared("Common")
+        return { value = Common.value, place = shared.PlaceType }
+    )");
+    auto documentB = newDocument("b.luau", R"(
+        local Common = shared("Common")
+        return { value = Common.value, assets = shared.Assets }
+    )");
+
+    CHECK_EQ(workspace.documentDiagnostics(lsp::DocumentDiagnosticParams{{documentA}}, nullptr).items.size(), 0);
+    CHECK_EQ(workspace.documentDiagnostics(lsp::DocumentDiagnosticParams{{documentB}}, nullptr).items.size(), 0);
+
+    updateDocument(commonDocument, "return { value = 2, extra = true }");
+
+    CHECK_EQ(workspace.documentDiagnostics(lsp::DocumentDiagnosticParams{{commonDocument}}, nullptr).items.size(), 0);
+    CHECK_EQ(workspace.documentDiagnostics(lsp::DocumentDiagnosticParams{{documentA}}, nullptr).items.size(), 0);
+    CHECK_EQ(workspace.documentDiagnostics(lsp::DocumentDiagnosticParams{{documentB}}, nullptr).items.size(), 0);
+}
 #endif
 
 TEST_SUITE_END();
