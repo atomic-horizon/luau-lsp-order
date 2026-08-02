@@ -9,6 +9,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Changed
 
 - Sync to upstream Luau 0.731
+- Reworked Order `shared()` require support to eliminate a class of use-after-free crashes:
+  - The `shared` global is now registered once per type checker (like builtin `require`) instead of being re-created in the sourcemap type arena for every module scope on every check. Its magic resolver no longer captures `SourceNode` pointers; module names are resolved through a name → virtual path string map at call time, so sourcemap regenerations can no longer leave the type graph pointing at freed memory
+  - `shared()` requires now participate in Luau's require-cycle detection. Previously cycles through `shared()` edges were hidden from `getRequireCycles()`, which bypassed the cyclic-require → `any` substitution: after editing one member of a cycle, the other member's freshly-checked type graph embedded types from the stale module being replaced, and the next read of that graph crashed with an access violation (`Substitution::substitute`/`follow` at a heap address). Intentional Order service cycles remain diagnostic-free — `ModuleHasCyclicDependency` is suppressed for any cycle containing a `shared()` edge, while cyclic edges type as `any`
+  - Order module names are now only consulted for bare require strings; prefixed string requires (`./`, `../`, `@alias`) can no longer be shadowed by an Order module of the same name
 
 ### Fixed
 

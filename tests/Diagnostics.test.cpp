@@ -292,6 +292,94 @@ TEST_CASE_FIXTURE(Fixture, "shared_call_self_require_reports_unknown_require")
     CHECK_EQ(diagnostics.items[0].message, "TypeError: Unknown require: Main");
 }
 
+TEST_CASE_FIXTURE(Fixture, "cyclic_shared_requires_are_allowed_and_survive_rechecks")
+{
+    loadSourcemap(R"({
+        "name": "Game",
+        "className": "DataModel",
+        "children": [
+            {
+                "name": "ReplicatedStorage",
+                "className": "ReplicatedStorage",
+                "children": [
+                    { "name": "ServiceA", "className": "ModuleScript", "filePaths": ["a.luau"] },
+                    { "name": "ServiceB", "className": "ModuleScript", "filePaths": ["b.luau"] }
+                ]
+            }
+        ]
+    })");
+
+    auto documentA = newDocument("a.luau", R"(
+        local ServiceB = shared("ServiceB")
+        return { other = ServiceB }
+    )");
+    auto documentB = newDocument("b.luau", R"(
+        local ServiceA = shared("ServiceA")
+        return { other = ServiceA }
+    )");
+
+    // Intentional Order service cycles must not surface ModuleHasCyclicDependency (the
+    // cyclic edges resolve to `any` instead)
+    auto diagnosticsA = workspace.documentDiagnostics(lsp::DocumentDiagnosticParams{{documentA}}, nullptr);
+    CHECK_EQ(diagnosticsA.items.size(), 0);
+    auto diagnosticsB = workspace.documentDiagnostics(lsp::DocumentDiagnosticParams{{documentB}}, nullptr);
+    CHECK_EQ(diagnosticsB.items.size(), 0);
+
+    // Regression test: shared() cycles used to be hidden from getRequireCycles(), which
+    // bypassed the requireCycles -> `any` substitution. The first member of the cycle to be
+    // rechecked would then embed TypeIds from the stale module of the other member, and once
+    // that module was itself rechecked (freeing the old arena) the next read of the fresh
+    // graph crashed with an access violation.
+    updateDocument(documentA, R"(
+        local ServiceB = shared("ServiceB")
+        local extra = 1
+        return { other = ServiceB, extra = extra }
+    )");
+
+    diagnosticsA = workspace.documentDiagnostics(lsp::DocumentDiagnosticParams{{documentA}}, nullptr);
+    CHECK_EQ(diagnosticsA.items.size(), 0);
+    diagnosticsB = workspace.documentDiagnostics(lsp::DocumentDiagnosticParams{{documentB}}, nullptr);
+    CHECK_EQ(diagnosticsB.items.size(), 0);
+}
+
+TEST_CASE_FIXTURE(Fixture, "shared_requires_survive_sourcemap_reload")
+{
+    const std::string sourcemap = R"({
+        "name": "Game",
+        "className": "DataModel",
+        "children": [
+            {
+                "name": "ReplicatedStorage",
+                "className": "ReplicatedStorage",
+                "children": [
+                    { "name": "TestModule", "className": "ModuleScript", "filePaths": ["mod.luau"] },
+                    { "name": "Consumer", "className": "ModuleScript", "filePaths": ["main.luau"] }
+                ]
+            }
+        ]
+    })";
+
+    loadSourcemap(sourcemap);
+
+    newDocument("mod.luau", "return { value = 42 }");
+    auto document = newDocument("main.luau", R"(
+        local TestModule = shared("TestModule")
+        return { value = TestModule.value }
+    )");
+
+    auto diagnostics = workspace.documentDiagnostics(lsp::DocumentDiagnosticParams{{document}}, nullptr);
+    CHECK_EQ(diagnostics.items.size(), 0);
+
+    // Regression test: reloading the sourcemap frees every SourceNode and clears the
+    // sourcemap type arena. `shared` used to be re-injected per module scope with its type
+    // allocated in that arena and a raw SourceNode pointer captured in its magic function,
+    // so requests after a reload could read freed memory.
+    loadSourcemap(sourcemap);
+
+    diagnostics = workspace.documentDiagnostics(lsp::DocumentDiagnosticParams{{document}}, nullptr);
+    CHECK_EQ(diagnostics.items.size(), 0);
+}
+
 // NOTE: a previous version of this fork modelled `shared` as a callable table with a
 // `[any]: any` indexer, which let `shared.foo = 5` type-check. That structure triggered
 // a Luau old-solver crash during dependency-cascade unification, so `shared` is now

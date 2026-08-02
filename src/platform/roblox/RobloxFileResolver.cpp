@@ -361,13 +361,18 @@ std::optional<Luau::ModuleInfo> RobloxPlatform::resolveModule(
     const Luau::ModuleInfo* context, Luau::AstExpr* node, const Luau::TypeCheckLimits& limits)
 {
 #ifdef ORDER_STRING_REQUIRE
+    // Order shared("Name") arguments arrive here as bare constant strings. Only consult the
+    // Order registry for names that cannot be standard string requires (those are prefixed
+    // with ./, ../ or @alias, or contain a path separator), so that Order module names can
+    // never shadow a legitimate require("...") path.
     if (auto* str = node->as<Luau::AstExprConstantString>())
     {
-        auto module = this->findOrderStringModule(std::string(str->value.data, str->value.size));
-        if (module.has_value())
+        std::string requiredString(str->value.data, str->value.size);
+        if (!requiredString.empty() && requiredString[0] != '@' && requiredString[0] != '.' &&
+            requiredString.find('/') == std::string::npos && requiredString.find('\\') == std::string::npos)
         {
-            Luau::ModuleName virtualPath = getVirtualPathFromSourceNode(module.value());
-            return Luau::ModuleInfo{virtualPath};
+            if (auto virtualPath = this->findOrderStringModule(requiredString))
+                return Luau::ModuleInfo{*virtualPath};
         }
     }
 #endif

@@ -114,7 +114,11 @@ public:
     mutable std::unordered_map<Luau::ModuleName, const SourceNode*> virtualPathsToSourceNodes{};
 
 #ifdef ORDER_STRING_REQUIRE
-    mutable std::unordered_map<std::string, const SourceNode*> orderModuleNameToSourceNode{};
+    // Maps Order module names (ModuleScript instance names from the sourcemap) to their
+    // virtual paths. Values are plain strings rather than SourceNode pointers so that
+    // nothing reachable from the type checker dangles when the sourcemap is regenerated
+    // (SourceNodes are freed wholesale on every sourcemap update).
+    mutable std::unordered_map<std::string, Luau::ModuleName> orderModuleNameToVirtualPath{};
 #endif
 
     Luau::TypeArena instanceTypes;
@@ -153,8 +157,12 @@ public:
     Luau::SourceCode::Type sourceCodeTypeFromPath(const Uri& path) const override;
 
 #ifdef ORDER_STRING_REQUIRE
-    Luau::TypeId getOrderStringRequireType(const Luau::GlobalTypes& globals, Luau::TypeArena& arena, const SourceNode* node) const;
-    std::optional<const SourceNode*> findOrderStringModule(const std::string& moduleName) const;
+    /// Registers the Order `shared` global into the given GlobalTypes. Called once per
+    /// GlobalTypes from mutateRegisteredDefinitions; the type lives in the global arena
+    /// (like builtin `require`) so module type graphs may reference it safely across
+    /// sourcemap regenerations.
+    void registerOrderSharedGlobal(Luau::GlobalTypes& globals) const;
+    std::optional<Luau::ModuleName> findOrderStringModule(const std::string& moduleName) const;
 #endif
 
     std::optional<std::string> readSourceCode(const Luau::ModuleName& name, const Uri& path) const override;

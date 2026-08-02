@@ -524,12 +524,14 @@ void RobloxPlatform::writePathsToMap(SourceNode* node, const std::string& base, 
     }
 
 #ifdef ORDER_STRING_REQUIRE
-    // Index all ModuleScript children by name for Order string requires
+    // Index all ModuleScript children by name for Order string requires. Only the virtual
+    // path string is stored (the child's virtualPath was assigned during its recursion
+    // above), so the map never holds pointers that a sourcemap update could free.
     for (auto& child : node->children)
     {
         if (child->className == "ModuleScript")
         {
-            orderModuleNameToSourceNode.insert_or_assign(child->name, child);
+            orderModuleNameToVirtualPath.insert_or_assign(child->name, child->virtualPath);
         }
     }
 #endif
@@ -551,7 +553,7 @@ void RobloxPlatform::updateSourceNodeMap(const std::string& sourceMapContents)
     realPathsToSourceNodes.clear();
     virtualPathsToSourceNodes.clear();
 #ifdef ORDER_STRING_REQUIRE
-    orderModuleNameToSourceNode.clear();
+    orderModuleNameToVirtualPath.clear();
 #endif
 
     try
@@ -671,16 +673,12 @@ void RobloxPlatform::handleSourcemapUpdate(Luau::Frontend& frontend, const Luau:
             if (auto node = isVirtualPath(name) ? getSourceNodeFromVirtualPath(name) : getSourceNodeFromRealPath(fileResolver->getUri(name)))
                 scope->bindings[Luau::AstName("script")] = Luau::Binding{getSourcemapType(globals, instanceTypes, node.value())};
 
-#ifdef ORDER_STRING_REQUIRE
-        // Inject `shared` binding with Order magic callable type for each module scope.
-        // Unlike `script`, we always inject this regardless of expressiveTypes, because the require
-        // functionality should always work and we don't have the same Luau casting issue that
-        // requires the expressiveTypes guard for `script`.
-        if (auto node = isVirtualPath(name) ? getSourceNodeFromVirtualPath(name) : getSourceNodeFromRealPath(fileResolver->getUri(name)))
-        {
-            scope->bindings[Luau::AstName("shared")] = Luau::Binding{getOrderStringRequireType(globals, instanceTypes, node.value())};
-        }
-#endif
+        // NOTE: the Order `shared` global is registered once per GlobalTypes in
+        // mutateRegisteredDefinitions (see RobloxPlatform::registerOrderSharedGlobal), NOT
+        // injected per module scope here. Per-scope injection allocated a fresh magic type
+        // into instanceTypes on every check, and both the arena contents and the SourceNode
+        // pointer the magic function held were freed on every sourcemap update while checked
+        // modules still referenced them.
     };
 }
 

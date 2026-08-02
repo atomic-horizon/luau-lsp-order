@@ -153,7 +153,7 @@ std::optional<Luau::AutocompleteEntryMap> RobloxPlatform::completionCallback(
     else if (tag == "OrderStringRequires")
     {
         Luau::AutocompleteEntryMap result;
-        for (auto& [moduleName, _] : orderModuleNameToSourceNode)
+        for (auto& [moduleName, _] : orderModuleNameToVirtualPath)
         {
             result.insert_or_assign(
                 moduleName, Luau::AutocompleteEntry{Luau::AutocompleteEntryKind::String, workspaceFolder->frontend.builtinTypes->stringType, false,

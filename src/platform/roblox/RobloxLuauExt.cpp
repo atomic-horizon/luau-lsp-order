@@ -670,6 +670,13 @@ static void attachTagSafe(Luau::TableType::Props& props, const char* property, c
 
 void RobloxPlatform::mutateRegisteredDefinitions(Luau::GlobalTypes& globals, std::optional<nlohmann::json> metadata)
 {
+#ifdef ORDER_STRING_REQUIRE
+    // Override the `declare shared: any` binding with the Order shared() require function.
+    // Registered here (once per GlobalTypes, into the global arena) rather than per module
+    // scope so that its lifetime matches the type checker, not the sourcemap.
+    registerOrderSharedGlobal(globals);
+#endif
+
     // HACK: Mark "debug" using `@luau` symbol instead
     if (auto it = globals.globalScope->bindings.find(Luau::AstName("debug")); it != globals.globalScope->bindings.end())
     {
