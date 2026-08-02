@@ -61,6 +61,10 @@ jobs:
           token: ${{ steps.generate_token.outputs.token }}
 
       - name: Enable Pull Request Automerge
+        # create-pull-request outputs an empty pull-request-number when the dump produced
+        # no changes; running gh with an empty argument fails with
+        # `no pull requests found for branch "main"`
+        if: steps.create_pull_request.outputs.pull-request-number != ''
         run: gh pr merge --squash --auto "${{ steps.create_pull_request.outputs.pull-request-number }}"
         env:
           GITHUB_TOKEN: ${{ steps.generate_token.outputs.token }}
