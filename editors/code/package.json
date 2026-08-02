@@ -890,13 +890,13 @@
     "@types/vscode": "~1.82.0",
     "@typescript-eslint/eslint-plugin": "^7.16.0",
     "@typescript-eslint/parser": "^7.16.0",
-    "@vscode/test-cli": "^0.0.12",
-    "@vscode/test-electron": "^2.5.2",
+    "@vscode/test-cli": "^0.0.15",
+    "@vscode/test-electron": "^3.1.0",
+    "esbuild": "^0.28.1",
     "eslint": "^8.57.0",
     "mocha": "^11.1.0",
-    "prettier": "^3.8.2",
-    "esbuild": "^0.28.1",
     "npm-run-all": "^4.1.5",
+    "prettier": "^3.8.2",
     "typescript": "^5.5.3"
   },
   "dependencies": {
