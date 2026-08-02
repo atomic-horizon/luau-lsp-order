@@ -5,6 +5,8 @@
 #include "Luau/ConstraintSolver.h"
 #include "Luau/TypeInfer.h"
 
+LUAU_FASTFLAG(DebugLuauCyclicRequireTypeInference)
+
 #ifdef ORDER_STRING_REQUIRE
 
 struct MagicOrderStringRequire final : Luau::MagicFunction
@@ -26,6 +28,18 @@ struct MagicOrderStringRequire final : Luau::MagicFunction
         const Luau::AstExprCall& expr, Luau::WithPredicate<Luau::TypePackId> withPredicate) override;
     bool infer(const Luau::MagicFunctionCallContext& context) override;
 };
+
+// `ConstraintSolver::reportError` gained a module-name parameter behind
+// DebugLuauCyclicRequireTypeInference; the pre-flag overload is now DEPRECATED_reportError.
+// Mirrors the branching that `MagicRequire::infer` does in BuiltinDefinitions.cpp.
+static void reportRequireError(const Luau::MagicFunctionCallContext& context, const std::string& moduleName)
+{
+    if (FFlag::DebugLuauCyclicRequireTypeInference)
+        context.solver->reportError(
+            Luau::UnknownRequire{moduleName}, context.callSite->args.data[0]->location, *context.constraint->moduleName);
+    else
+        context.solver->DEPRECATED_reportError(Luau::UnknownRequire{moduleName}, context.callSite->args.data[0]->location);
+}
 
 static bool isNilableSharedCall(const Luau::AstExprCall& expr)
 {
@@ -69,7 +83,7 @@ std::optional<Luau::WithPredicate<Luau::TypePackId>> MagicOrderStringRequire::ha
         // When nilable flag is set, an unknown module resolves to nil instead of an error
         if (nilable)
         {
-            Luau::TypeArena& moduleArena = typeChecker.currentModule->internalTypes;
+            Luau::TypeArena& moduleArena = *typeChecker.currentModule->internalTypes;
             return Luau::WithPredicate<Luau::TypePackId>{moduleArena.addTypePack({globals.builtinTypes->nilType})};
         }
         typeChecker.reportError(Luau::TypeError{expr.args.data[0]->location, Luau::UnknownRequire{moduleName}});
@@ -82,7 +96,7 @@ std::optional<Luau::WithPredicate<Luau::TypePackId>> MagicOrderStringRequire::ha
     // Use the TypeChecker's own module arena (same as built-in MagicRequire::handleOldSolver),
     // NOT instanceTypes. instanceTypes can be cleared/reallocated across sourcemap updates, making
     // any TypePackIds allocated in it potentially stale during subsequent type checks.
-    Luau::TypeArena& moduleArena = typeChecker.currentModule->internalTypes;
+    Luau::TypeArena& moduleArena = *typeChecker.currentModule->internalTypes;
     Luau::TypeId resultTy = typeChecker.checkRequire(scope, moduleInfo, expr.args.data[0]->location);
 
     // When the nilable flag is set, wrap the return type as T? (union with nil)
@@ -107,7 +121,7 @@ bool MagicOrderStringRequire::infer(const Luau::MagicFunctionCallContext& contex
     // Prevent self-requires (mirrors the old-solver path).
     if (node->name == moduleName)
     {
-        context.solver->reportError(Luau::UnknownRequire{moduleName}, context.callSite->args.data[0]->location);
+        reportRequireError(context, moduleName);
         return false;
     }
 
@@ -120,14 +134,16 @@ bool MagicOrderStringRequire::infer(const Luau::MagicFunctionCallContext& contex
             asMutable(context.result)->ty.emplace<Luau::BoundTypePack>(context.solver->arena->addTypePack({globals.builtinTypes->nilType}));
             return true;
         }
-        context.solver->reportError(Luau::UnknownRequire{moduleName}, context.callSite->args.data[0]->location);
+        reportRequireError(context, moduleName);
         return false;
     }
 
     Luau::ModuleInfo moduleInfo;
     moduleInfo.name = module.value()->virtualPath;
 
-    Luau::TypeId resultTy = context.solver->resolveModule(moduleInfo, context.callSite->args.data[0]->location);
+    Luau::TypeId resultTy = FFlag::DebugLuauCyclicRequireTypeInference
+                                ? context.solver->resolveModule(moduleInfo, context.callSite->args.data[0]->location, *context.constraint->moduleName)
+                                : context.solver->DEPRECATED_resolveModule(moduleInfo, context.callSite->args.data[0]->location);
 
     // When the nilable flag is set, wrap the return type as T? (union with nil)
     if (nilable)

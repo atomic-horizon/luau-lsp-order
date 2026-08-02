@@ -6,7 +6,43 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
-## [1.68.1] - 2026-05-22
+### Changed
+
+- Sync to upstream Luau 0.731
+
+### Fixed
+
+- Fixed `@self` string-require aliases resolving from the filesystem instead of the sourcemap tree for non-DataModel roots ([#1511](https://github.com/JohnnyMorganz/luau-lsp/issues/1511))
+
+## [1.69.0] - 2026-07-14
+
+### Added
+
+- Added support for more Moonwave tags in hover documentation: `@deprecated` and `@since` are now rendered with their version and description, `@field` entries are shown in a "Fields" list, and `@readonly` is boldified
+
+### Changed
+
+- Sync to upstream Luau 0.729
+- Moonwave flag tags (e.g. `@yields`, `@server`, `@private`) are now rendered as readable labels (e.g. **Yields**) instead of the raw tag name
+- Moonwave declaration and metadata tags (`@class`, `@function`, `@method`, `@prop`, `@interface`, `@type`, `@__index`, `@external`, `@ignore`) are no longer shown as raw text in hover documentation
+
+### Fixed
+
+- Fixed use-after-free crashes after a sourcemap update. Studio Plugin updates left stale entries in the virtual/real path maps and stale cached DataModel types on pruned source nodes, allowing later type checks to reference destroyed sourcemap types. Additionally, incremental (fragment) autocomplete could read the stale type graph of a not-yet-rechecked module which referenced destroyed sourcemap types ([#1331](https://github.com/JohnnyMorganz/luau-lsp/issues/1331))
+- Fixed a crash in the Studio Plugin JSON encoder when an Instance name contained malformed UTF-8. Such instances are now skipped (with a warning logged) instead of corrupting the encoded output ([#1559](https://github.com/JohnnyMorganz/luau-lsp/pull/1559))
+
+## [1.68.1] - 2026-06-14
+
+### Changed
+
+- Sync to upstream Luau 0.725
+
+### Fixed
+
+- Fixed signature help parameter highlighting when a parameter type references an exported table type from another module inside a union or intersection type ([#1507](https://github.com/JohnnyMorganz/luau-lsp/issues/1507))
+- Updated plugin README to reference the correct setting names `luau-lsp.studioPlugin.enabled` and `luau-lsp.studioPlugin.port` instead of the deprecated `luau-lsp.plugin.enabled` and `luau-lsp.plugin.port` ([#1522](https://github.com/JohnnyMorganz/luau-lsp/issues/1522))
+
+## [1.68.1-order] - 2026-05-22
 
 ### Changed
 

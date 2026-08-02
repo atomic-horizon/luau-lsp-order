@@ -14,7 +14,7 @@
   "bugs": {
     "url": "https://github.com/atomic-horizon/luau-lsp-order/issues"
   },
-  "version": "1.68.1",
+  "version": "1.69.0",
   "engines": {
     "vscode": "^1.82.0"
   },
@@ -895,7 +895,7 @@
     "eslint": "^8.57.0",
     "mocha": "^11.1.0",
     "prettier": "^3.8.2",
-    "esbuild": "^0.25.0",
+    "esbuild": "^0.28.1",
     "npm-run-all": "^4.1.5",
     "typescript": "^5.5.3"
   },
@@ -905,7 +905,7 @@
     "d3": "^7.9.0",
     "d3-graphviz": "^5.6.0",
     "express": "^5.2.1",
-    "undici": "^8.0.2",
+    "undici": "^8.5.0",
     "vscode-languageclient": "^9.0.1"
   }
 }

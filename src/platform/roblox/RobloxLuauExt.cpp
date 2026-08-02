@@ -4,6 +4,19 @@
 #include "Luau/ConstraintSolver.h"
 #include "Luau/TypeInfer.h"
 
+LUAU_FASTFLAG(DebugLuauCyclicRequireTypeInference)
+
+// `ConstraintSolver::reportError` gained a module-name parameter behind
+// DebugLuauCyclicRequireTypeInference; the pre-flag overloads are now DEPRECATED_reportError.
+// Mirrors the branching Luau itself does in BuiltinDefinitions.cpp
+static void reportSolverError(const Luau::MagicFunctionCallContext& context, Luau::TypeErrorData&& data, const Luau::Location& location)
+{
+    if (FFlag::DebugLuauCyclicRequireTypeInference)
+        context.solver->reportError(std::move(data), location, *context.constraint->moduleName);
+    else
+        context.solver->DEPRECATED_reportError(std::move(data), location);
+}
+
 // Parse class names from QueryDescendants CSS-like selector strings.
 // Returns the class name from the last compound selector of each comma-separated group.
 std::vector<std::string> parseClassNamesFromSelector(const std::string& selector)
@@ -118,7 +131,7 @@ std::optional<Luau::WithPredicate<Luau::TypePackId>> MagicInstanceIsA::handleOld
 
     auto type = Luau::follow(tfun->type);
 
-    Luau::TypeArena& arena = typeChecker.currentModule->internalTypes;
+    Luau::TypeArena& arena = *typeChecker.currentModule->internalTypes;
     Luau::TypePackId booleanPack = arena.addTypePack({typeChecker.booleanType});
     return Luau::WithPredicate<Luau::TypePackId>{booleanPack, {Luau::IsAPredicate{std::move(*lvalue), expr.location, type}}};
 }
@@ -136,8 +149,7 @@ bool MagicInstanceIsA::infer(const Luau::MagicFunctionCallContext& context)
     std::string className(str->value.data, str->value.size);
     std::optional<Luau::TypeFun> tfun = context.solver->rootScope->lookupType(className);
     if (!tfun)
-        context.solver->reportError(
-            Luau::TypeError{context.callSite->args.data[0]->location, Luau::UnknownSymbol{className, Luau::UnknownSymbol::Type}});
+        reportSolverError(context, Luau::UnknownSymbol{className, Luau::UnknownSymbol::Type}, context.callSite->args.data[0]->location);
 
     return false;
 }
@@ -180,7 +192,7 @@ std::optional<Luau::WithPredicate<Luau::TypePackId>> MagicInstanceClone::handleO
     if (!index)
         return std::nullopt;
 
-    Luau::TypeArena& arena = typeChecker.currentModule->internalTypes;
+    Luau::TypeArena& arena = *typeChecker.currentModule->internalTypes;
     auto instanceType = typeChecker.checkExpr(scope, *index->expr);
     return Luau::WithPredicate<Luau::TypePackId>{arena.addTypePack({instanceType.type})};
 }
@@ -214,7 +226,7 @@ std::optional<Luau::WithPredicate<Luau::TypePackId>> MagicInstanceFromExisting::
     if (expr.args.size < 1)
         return std::nullopt;
 
-    Luau::TypeArena& arena = typeChecker.currentModule->internalTypes;
+    Luau::TypeArena& arena = *typeChecker.currentModule->internalTypes;
     auto instanceType = typeChecker.checkExpr(scope, *expr.args.data[0]);
     return Luau::WithPredicate<Luau::TypePackId>{arena.addTypePack({instanceType.type})};
 }
@@ -262,7 +274,7 @@ std::optional<Luau::WithPredicate<Luau::TypePackId>> MagicInstanceFindFirstXWhic
 
     auto type = Luau::follow(tfun->type);
 
-    Luau::TypeArena& arena = typeChecker.currentModule->internalTypes;
+    Luau::TypeArena& arena = *typeChecker.currentModule->internalTypes;
     Luau::TypeId nillableClass = Luau::makeOption(typeChecker.builtinTypes, arena, type);
     return Luau::WithPredicate<Luau::TypePackId>{arena.addTypePack({nillableClass})};
 }
@@ -280,7 +292,7 @@ bool MagicInstanceFindFirstXWhichIsA::infer(const Luau::MagicFunctionCallContext
     std::optional<Luau::TypeFun> tfun = context.solver->rootScope->lookupType(className);
     if (!tfun || !tfun->typeParams.empty() || !tfun->typePackParams.empty())
     {
-        context.solver->reportError(Luau::UnknownSymbol{className, Luau::UnknownSymbol::Type}, str->location);
+        reportSolverError(context, Luau::UnknownSymbol{className, Luau::UnknownSymbol::Type}, str->location);
         return false;
     }
 
@@ -326,7 +338,7 @@ std::optional<Luau::WithPredicate<Luau::TypePackId>> MagicEnumItemIsA::handleOld
 
     auto type = Luau::follow(tfun->type);
 
-    Luau::TypeArena& arena = typeChecker.currentModule->internalTypes;
+    Luau::TypeArena& arena = *typeChecker.currentModule->internalTypes;
     Luau::TypePackId booleanPack = arena.addTypePack({typeChecker.booleanType});
     return Luau::WithPredicate<Luau::TypePackId>{booleanPack, {Luau::IsAPredicate{std::move(*lvalue), expr.location, type}}};
 }
@@ -344,8 +356,7 @@ bool MagicEnumItemIsA::infer(const Luau::MagicFunctionCallContext& context)
     std::string enumItem(str->value.data, str->value.size);
     std::optional<Luau::TypeFun> tfun = context.constraint->scope->lookupImportedType("Enum", enumItem);
     if (!tfun)
-        context.solver->reportError(
-            Luau::TypeError{context.callSite->args.data[0]->location, Luau::UnknownSymbol{enumItem, Luau::UnknownSymbol::Type}});
+        reportSolverError(context, Luau::UnknownSymbol{enumItem, Luau::UnknownSymbol::Type}, context.callSite->args.data[0]->location);
 
     return false;
 }
@@ -433,7 +444,7 @@ bool MagicInstancePropertyCheck::infer(const Luau::MagicFunctionCallContext& con
     std::string property(str->value.data, str->value.size);
     if (!Luau::lookupExternTypeProp(ctv, property))
     {
-        context.solver->reportError(Luau::TypeError{context.callSite->args.data[0]->location, Luau::UnknownProperty{*selfTy, property}});
+        reportSolverError(context, Luau::UnknownProperty{*selfTy, property}, context.callSite->args.data[0]->location);
     }
 
     return false;
@@ -476,7 +487,7 @@ std::optional<Luau::WithPredicate<Luau::TypePackId>> MagicQueryDescendants::hand
         classTypes.push_back(Luau::follow(tfun->type));
     }
 
-    Luau::TypeArena& arena = typeChecker.currentModule->internalTypes;
+    Luau::TypeArena& arena = *typeChecker.currentModule->internalTypes;
 
     Luau::TypeId elementType;
     if (classTypes.size() == 1)
@@ -513,7 +524,7 @@ bool MagicQueryDescendants::infer(const Luau::MagicFunctionCallContext& context)
         std::optional<Luau::TypeFun> tfun = context.solver->rootScope->lookupType(className);
         if (!tfun || !tfun->typeParams.empty() || !tfun->typePackParams.empty())
         {
-            context.solver->reportError(Luau::UnknownSymbol{className, Luau::UnknownSymbol::Type}, str->location);
+            reportSolverError(context, Luau::UnknownSymbol{className, Luau::UnknownSymbol::Type}, str->location);
             return false;
         }
         classTypes.push_back(Luau::follow(tfun->type));
@@ -593,7 +604,7 @@ std::optional<Luau::WithPredicate<Luau::TypePackId>> MagicTypeLookup::handleOldS
 
             auto type = Luau::follow(tfun->type);
 
-            Luau::TypeArena& arena = typeChecker.currentModule->internalTypes;
+            Luau::TypeArena& arena = *typeChecker.currentModule->internalTypes;
             Luau::TypePackId classTypePack = arena.addTypePack({type});
             return Luau::WithPredicate<Luau::TypePackId>{classTypePack};
         }
@@ -619,8 +630,7 @@ bool MagicTypeLookup::infer(const Luau::MagicFunctionCallContext& context)
             std::optional<Luau::TypeFun> tfun = context.solver->rootScope->lookupType(className);
             if (!tfun || !tfun->typeParams.empty() || !tfun->typePackParams.empty())
             {
-                context.solver->reportError(
-                    Luau::TypeError{context.callSite->args.data[0]->location, Luau::UnknownSymbol{className, Luau::UnknownSymbol::Type}});
+                reportSolverError(context, Luau::UnknownSymbol{className, Luau::UnknownSymbol::Type}, context.callSite->args.data[0]->location);
                 return false;
             }
 
@@ -631,8 +641,8 @@ bool MagicTypeLookup::infer(const Luau::MagicFunctionCallContext& context)
         }
         else
         {
-            context.solver->reportError(
-                Luau::TypeError{context.callSite->args.data[0]->location, Luau::GenericError{errorMessagePrefix + " '" + className + "'"}});
+            reportSolverError(
+                context, Luau::GenericError{errorMessagePrefix + " '" + className + "'"}, context.callSite->args.data[0]->location);
         }
     }
 

@@ -79,6 +79,19 @@ LUAU_SNIPPET_PATCHES = {
 
     "declare Workspace: any": "",
     "declare Game: any": "",
+
+    "type ReflectedClassOrNil = any": "type ReflectedClassOrNil = ReflectedClass?",
+    "type ReflectedClasses = any": "type ReflectedClasses = { ReflectedClass }",
+    "type ReflectedProperties = any": "type ReflectedProperties = { ReflectedProperty }",
+
+    "type ReflectionClassFilter = {": "export type ReflectionClassFilter = {",
+    "type ReflectionMemberFilter = {": "export type ReflectionMemberFilter = {",
+    "type ReflectionType = {": "export type ReflectionType = {",
+    "type ReflectionParameter = {": "export type ReflectionParameter = {",
+    "type ReflectedProperty = {": "export type ReflectedProperty = {",
+    "type ReflectedMethod = {": "export type ReflectedMethod = {",
+    "type ReflectedEvent = {": "export type ReflectedEvent = {",
+    "type ReflectedClass = {": "export type ReflectedClass = {",
 }
 
 TYPE_INDEX = {
@@ -451,13 +464,13 @@ type QDir = string
 type QFont = string
 type TeleportData = boolean | buffer | number | string | {[number]: TeleportData} | {[string]: TeleportData}
 
-declare class Enum
+declare extern type Enum with
     function GetEnumItems(self): { any }
     function FromValue(self,Number: number): any
     function FromName(self,Name: string): any
 end
 
-declare class EnumItem
+declare extern type EnumItem with
     Name: string
     Value: number
     EnumType: Enum
@@ -493,7 +506,7 @@ declare function spawn(callback: (dt: number, gt: number) -> ())
 """
 
 POST_DATATYPES_BASE = """
-declare class SharedTable
+declare extern type SharedTable with
   [string | number]: any
   function __iter(self): (any, number) -> (number, any)
 end
@@ -510,7 +523,7 @@ type HttpRequestOptions = {
     Method: "GET" | "HEAD" | "POST" | "PUT" | "DELETE" | "CONNECT" | "OPTIONS" | "TRACE" | "PATCH" | nil,
     Headers: { [string]: string | Secret }?,
     Body: string?,
-    Compress: EnumHttpCompression
+    Compress: EnumHttpCompression?,
 }
 
 type HttpResponseData = {
@@ -529,7 +542,7 @@ type HumanoidDescriptionAccessory = {
     Puffiness: number?,
 }
 
-declare class ValueCurveKey
+declare extern type ValueCurveKey with
     Interpolation: EnumKeyInterpolationMode
     Time: number
     Value: any
@@ -553,7 +566,7 @@ export type RaycastResult<T = BasePart> = {
     Distance: number,
 }
 
-declare class GlobalSettings extends GenericSettings
+declare extern type GlobalSettings extends GenericSettings with
     Lua: LuaSettings
     Game: GameSettings
     Studio: Studio
@@ -885,6 +898,13 @@ def resolveType(type: Union[ApiValueType, CorrectionsValueType]) -> str:
 
 def resolveParameter(param: ApiParameter):
     paramType = resolveType(param["Type"])
+
+    if paramType == "User":
+        # HACK: The User type is a special case where we only want to
+        # union it with number when its a parameter, so we
+        # don't use TYPE_INDEX to handle this case.
+        paramType = "(User | number)"
+
     isOptional = paramType[-1] == "?"
     isVariadic = paramType.startswith("...")
     if isVariadic:
@@ -1016,10 +1036,10 @@ def declareClass(klass: Union[ApiClass, DataType]) -> str:
     if klass["Name"] in IGNORED_INSTANCES:
         return ""
 
-    out = "declare class " + klass["Name"]
+    out = "declare extern type " + klass["Name"]
     if "Superclass" in klass and klass["Superclass"] != "<<<ROOT>>>":
         out += " extends " + klass["Superclass"]
-    out += "\n"
+    out += " with\n"
 
     def declareMember(member: ApiMember):
         if member["MemberType"] == "Property":
@@ -1086,8 +1106,8 @@ def printEnums(dump: ApiDump):
     out = ""
     for enum, items in enums.items():
         # Declare an atom for the enum
-        out += f"declare class Enum{enum} extends EnumItem end\n"
-        out += f"declare class Enum{enum}_INTERNAL extends Enum\n"
+        out += f"declare extern type Enum{enum} extends EnumItem with end\n"
+        out += f"declare extern type Enum{enum}_INTERNAL extends Enum with\n"
         items.sort()
         for item in items:
             out += f"\t{escapeName(item)}: Enum{enum}\n"
@@ -1255,6 +1275,10 @@ def applyCorrections(dump: ApiDump, corrections: CorrectionsDump):
                                     otherMember["ReturnType"]["Generic"] = member[
                                         "ReturnType"
                                     ]["Generic"]
+                                if "Declared" in member["ReturnType"]:
+                                    otherMember["ReturnType"]["Declared"] = member[
+                                        "ReturnType"
+                                    ]["Declared"]
                             elif "ValueType" in member:
                                 otherMember["ValueType"]["Name"] = (
                                     member["ValueType"]["Name"]
@@ -1282,6 +1306,10 @@ def applyCorrections(dump: ApiDump, corrections: CorrectionsDump):
                                                 if "Generic" in param["Type"]:
                                                     otherParam["Type"]["Generic"] = (
                                                         param["Type"]["Generic"]
+                                                    )
+                                                if "Declared" in param["Type"]:
+                                                    otherParam["Type"]["Declared"] = (
+                                                        param["Type"]["Declared"]
                                                     )
                                             if "Default" in param:
                                                 otherParam["Default"] = param["Default"]
