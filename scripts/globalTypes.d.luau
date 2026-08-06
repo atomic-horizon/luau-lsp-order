@@ -64,6 +64,7 @@ type OpenCloudModel = any
 type ProductIdentifierArray = any
 type RankedItemArray = any
 type ReplicationPV = any
+type ScopedInstanceIdentity = any
 type SharedString = any
 type SystemAddress = any
 type UniqueId = any
@@ -1879,6 +1880,16 @@ declare extern type EnumCustomCameraMode_INTERNAL extends Enum with
 	function GetEnumItems(self): { EnumCustomCameraMode }
 	function FromName(self, Name: string): EnumCustomCameraMode?
 	function FromValue(self, Value: number): EnumCustomCameraMode?
+end
+declare extern type EnumDataModelChangeType extends EnumItem with end
+declare extern type EnumDataModelChangeType_INTERNAL extends Enum with
+	Add: EnumDataModelChangeType
+	AddPackage: EnumDataModelChangeType
+	Modify: EnumDataModelChangeType
+	Remove: EnumDataModelChangeType
+	function GetEnumItems(self): { EnumDataModelChangeType }
+	function FromName(self, Name: string): EnumDataModelChangeType?
+	function FromValue(self, Value: number): EnumDataModelChangeType?
 end
 declare extern type EnumDataModelExtractorFileType extends EnumItem with end
 declare extern type EnumDataModelExtractorFileType_INTERNAL extends Enum with
@@ -5630,6 +5641,19 @@ declare extern type EnumSlimTintMode_INTERNAL extends Enum with
 	function FromName(self, Name: string): EnumSlimTintMode?
 	function FromValue(self, Value: number): EnumSlimTintMode?
 end
+declare extern type EnumSlimTranscoderStatus extends EnumItem with end
+declare extern type EnumSlimTranscoderStatus_INTERNAL extends Enum with
+	Failed: EnumSlimTranscoderStatus
+	InProgress: EnumSlimTranscoderStatus
+	NoHash: EnumSlimTranscoderStatus
+	NotUploaded: EnumSlimTranscoderStatus
+	Succeeded: EnumSlimTranscoderStatus
+	Unknown: EnumSlimTranscoderStatus
+	Uploaded: EnumSlimTranscoderStatus
+	function GetEnumItems(self): { EnumSlimTranscoderStatus }
+	function FromName(self, Name: string): EnumSlimTranscoderStatus?
+	function FromValue(self, Value: number): EnumSlimTranscoderStatus?
+end
 declare extern type EnumSolidPrimitiveType extends EnumItem with end
 declare extern type EnumSolidPrimitiveType_INTERNAL extends Enum with
 	Capsule: EnumSolidPrimitiveType
@@ -6945,6 +6969,14 @@ declare extern type EnumVelocityConstraintMode_INTERNAL extends Enum with
 	function FromName(self, Name: string): EnumVelocityConstraintMode?
 	function FromValue(self, Value: number): EnumVelocityConstraintMode?
 end
+declare extern type EnumVerifiedLevel extends EnumItem with end
+declare extern type EnumVerifiedLevel_INTERNAL extends Enum with
+	High: EnumVerifiedLevel
+	Low: EnumVerifiedLevel
+	function GetEnumItems(self): { EnumVerifiedLevel }
+	function FromName(self, Name: string): EnumVerifiedLevel?
+	function FromValue(self, Value: number): EnumVerifiedLevel?
+end
 declare extern type EnumVerticalAlignment extends EnumItem with end
 declare extern type EnumVerticalAlignment_INTERNAL extends Enum with
 	Bottom: EnumVerticalAlignment
@@ -7437,6 +7469,7 @@ type ENUM_LIST = {
 	CreatorTypeFilter: EnumCreatorTypeFilter_INTERNAL,
 	CurrencyType: EnumCurrencyType_INTERNAL,
 	CustomCameraMode: EnumCustomCameraMode_INTERNAL,
+	DataModelChangeType: EnumDataModelChangeType_INTERNAL,
 	DataModelExtractorFileType: EnumDataModelExtractorFileType_INTERNAL,
 	DataStoreRequestType: EnumDataStoreRequestType_INTERNAL,
 	DebugBreakModeType: EnumDebugBreakModeType_INTERNAL,
@@ -7752,6 +7785,7 @@ type ENUM_LIST = {
 	SimulationMode: EnumSimulationMode_INTERNAL,
 	SizeConstraint: EnumSizeConstraint_INTERNAL,
 	SlimTintMode: EnumSlimTintMode_INTERNAL,
+	SlimTranscoderStatus: EnumSlimTranscoderStatus_INTERNAL,
 	SolidPrimitiveType: EnumSolidPrimitiveType_INTERNAL,
 	SolverConvergenceMetricType: EnumSolverConvergenceMetricType_INTERNAL,
 	SolverConvergenceVisualizationMode: EnumSolverConvergenceVisualizationMode_INTERNAL,
@@ -7862,6 +7896,7 @@ type ENUM_LIST = {
 	VRTouchpad: EnumVRTouchpad_INTERNAL,
 	VRTouchpadMode: EnumVRTouchpadMode_INTERNAL,
 	VelocityConstraintMode: EnumVelocityConstraintMode_INTERNAL,
+	VerifiedLevel: EnumVerifiedLevel_INTERNAL,
 	VerticalAlignment: EnumVerticalAlignment_INTERNAL,
 	VerticalScrollBarPosition: EnumVerticalScrollBarPosition_INTERNAL,
 	VibrationMotor: EnumVibrationMotor_INTERNAL,
@@ -8943,6 +8978,12 @@ type VirtualInputPointerAction = {
 
 type BatchDataStoreGetOptions = { }
 
+type CameraState = {
+    CFrame: CFrame,
+    FieldOfView: number,
+    ViewportSize: Vector2,
+}
+
 
 type ReflectedClassOrNil = ReflectedClass?
 type ReflectedClasses = { ReflectedClass }
@@ -8984,6 +9025,12 @@ declare extern type ConfigSnapshot extends Object with
 	function GetValue(self, key: string): any
 	function GetValueChangedSignal(self, key: string): RBXScriptSignal
 	function Refresh(self): nil
+end
+
+declare extern type DataModelDiff extends Object with
+	function GetChangeType(self, identity: ScopedInstanceIdentity): EnumDataModelChangeType?
+	function GetIdentities(self): { any }
+	function GetPropertyNames(self, identity: ScopedInstanceIdentity): { any }
 end
 
 declare extern type EditableImage extends Object with
@@ -9602,6 +9649,7 @@ declare extern type AssetQualityService extends Instance with
 	function FetchAssetQualitySummaryFromGltfAsync(self, gltfData: string, desiredQualityChecks: { any }): { [string]: any }
 	function FetchAssetQualitySummaryFromJobIdAsync(self, jobId: string, desiredQualityChecks: { any }): { [string]: any }
 	function FetchAssetQualityValidationEntriesFromModelsAsync(self, models: { any }, assetTypeIds: { any }, settings: { [string]: any }): { [string]: any }
+	function FetchAssetQualityValidationRawFromModelsAsync(self, models: { any }, assetTypeIds: { any }, settings: { [string]: any }): { [string]: any }
 	function FetchAssetQualityVisualizationDataFromUrlAsync(self, visualizationUrl: string): { [string]: any }
 	function GenerateAssetQualityGltfFromInstanceAsync(self, uploadModel: Model): string
 end
@@ -10516,7 +10564,6 @@ declare extern type RootImportData extends BaseImportData with
 	ScaleUnit: EnumMeshScaleUnit
 	UseSceneOriginAsPivot: boolean
 	UsesCages: boolean
-	ValidateUgcBody: boolean
 	VersionedAssetId: number
 	WorldForward: EnumNormalId
 	WorldUp: EnumNormalId
@@ -12497,6 +12544,7 @@ declare extern type ImageButton extends GuiButton with
 	ImageRectSize: Vector2
 	ImageTransparency: number
 	IsLoaded: boolean
+	LocalizedImageContent: Content
 	PressedImage: ContentId
 	PressedImageContent: Content
 	ResampleMode: EnumResamplerMode
@@ -12548,6 +12596,7 @@ declare extern type ImageLabel extends GuiLabel with
 	ImageRectSize: Vector2
 	ImageTransparency: number
 	IsLoaded: boolean
+	LocalizedImageContent: Content
 	ResampleMode: EnumResamplerMode
 	ScaleType: EnumScaleType
 	SliceCenter: Rect
@@ -14301,6 +14350,11 @@ declare extern type MemStorageService extends Instance with
 	function SetItem(self, key: string, value: string?): nil
 end
 
+declare extern type MemoryStoreDistributedCounter extends Instance with
+	function GetAsync(self): number
+	function IncrementAsync(self, delta: number, expiration: number): number
+end
+
 declare extern type MemoryStoreHashMap extends Instance with
 	function GetAsync(self, key: string): any
 	function ListItemsAsync(self, count: number): MemoryStoreHashMapPages
@@ -14317,6 +14371,7 @@ declare extern type MemoryStoreQueue extends Instance with
 end
 
 declare extern type MemoryStoreService extends Instance with
+	function GetDistributedCounter(self, name: string): MemoryStoreDistributedCounter
 	function GetHashMap(self, name: string): MemoryStoreHashMap
 	function GetQueue(self, name: string, invisibilityTimeout: number?): MemoryStoreQueue
 	function GetSortedMap(self, name: string): MemoryStoreSortedMap
@@ -14640,6 +14695,7 @@ declare extern type BasePart extends PVInstance with
 	function ApplyAngularImpulse(self, impulse: Vector3): nil
 	function ApplyImpulse(self, impulse: Vector3): nil
 	function ApplyImpulseAtPosition(self, impulse: Vector3, position: Vector3): nil
+	function BindToCollisionSummaries(self, callback: ((...any) -> ...any)): RBXScriptConnection
 	function CanCollideWith(self, part: BasePart): boolean
 	function CanSetNetworkOwnership(self): (boolean, string)
 	function GetClosestPointOnSurface(self, position: Vector3): Vector3
@@ -15075,6 +15131,7 @@ declare extern type PackageLink extends Instance with
 	SerializedDefaultAttributes: BinaryString
 	Status: string
 	VersionNumber: number
+	function getOverrides(self): DataModelDiff
 end
 
 declare extern type PackageService extends Instance with
@@ -15554,7 +15611,7 @@ declare extern type Player extends Instance with
 	function HasBlockedPlayer(self, fromPlayer: number): boolean
 	function IsFriendsWithAsync(self, userId: (User | number)): boolean
 	function IsInGroupAsync(self, groupId: number): boolean
-	function IsVerified(self): boolean
+	function IsVerified(self, level: EnumVerifiedLevel?): boolean
 	function Kick(self, message: string?): nil
 	function LoadCharacterAsync(self): nil
 	function LoadCharacterBlocking(self): nil
@@ -16249,6 +16306,14 @@ declare extern type RequestOrchestratorService extends Instance with
 	JitterStarted: RBXScriptSignal<{ [string]: any }>
 	OperationCoalesced: RBXScriptSignal<{ [string]: any }>
 	OperationEnqueued: RBXScriptSignal<{ [string]: any }>
+	function ClearCache(self, name: string): nil
+	function GetBatchWindowDelayMax(self, name: string): number
+	function GetBatchWindowDelayMin(self, name: string): number
+	function GetRegisteredOrchestrators(self): { any }
+	function GetResponseDelayMax(self, name: string): number
+	function GetResponseDelayMin(self, name: string): number
+	function SetBatchWindowDelay(self, name: string, minMs: number, maxMs: number): nil
+	function SetResponseDelay(self, name: string, minMs: number, maxMs: number): nil
 end
 
 declare extern type RibbonNotificationService extends Instance with
@@ -18484,8 +18549,10 @@ declare extern type UIShadow extends UIComponent with
 	BlurRadius: UDim
 	Color: Color3
 	Enabled: boolean
+	Inset: boolean
 	Mode: EnumApplyShadowMode
 	Offset: UDim2
+	ShowBehindParent: boolean
 	Spread: UDim2
 	Transparency: number
 	ZIndex: number
@@ -19065,6 +19132,7 @@ declare extern type WindowProtocolService extends Instance with
 	function IsAvailable(self): boolean
 	function Maximize(self, windowId: number): nil
 	function Minimize(self, windowId: number): nil
+	function OnDragAreaDoubleClicked(self, windowId: number): nil
 	function Restore(self, windowId: number): nil
 	function SetCustomTitleBarHeight(self, windowId: number, height: number): nil
 	function SetTitleBarMode(self, windowId: number, mode: EnumTitleBarMode): nil
